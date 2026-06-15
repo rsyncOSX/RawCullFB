@@ -49,5 +49,7 @@ The release workflow expects the local signing identity, notarization keychain p
 
 - `RawCullFB/` - SwiftUI app source.
 - `RawCullFB.xcodeproj/` - Xcode project and Swift package resolution files.
+- `RawCullFBicon.icon/` - Icon Composer app icon bundle used by `ASSETCATALOG_COMPILER_APPICON_NAME`.
+- `Assets.xcassets/` - Shared asset catalog; the app icon is now managed by `RawCullFBicon.icon`.
 - `Makefile` - Debug and release build automation.
 - `exportOptions.plist` - Xcode archive export settings.
