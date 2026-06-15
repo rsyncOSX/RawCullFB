@@ -1,0 +1,137 @@
+APP = RawCullFB
+BUNDLE_ID = no.blogspot.$(APP)
+VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCullFB.xcodeproj/project.pbxproj | awk -F' = ' '{print $$2}' | tr -d ';')
+BUILD_PATH = $(PWD)/build
+APP_PATH = "$(BUILD_PATH)/$(APP).app"
+ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
+SIGNING_IDENTITY = "93M47F4H9T"
+TEST_DESTINATION = platform=macOS
+XCODE_TEST_FLAGS = -project RawCullFB.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
+# Default target is release build
+build: clean archive sign-app notarize staple prepare-dmg open
+
+# Debug build - skips notarization and signing
+debug: clean archive-debug open-debug
+
+# --- MAIN WORKFLOW FUNCTIONS --- #
+archive: clean
+	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCullFB"'
+	echo "Exporting application archive (RELEASE)..."
+	xcodebuild \
+		-scheme $(APP) \
+		-destination 'platform=OS X,arch=arm64' \
+		-configuration Release archive \
+		-archivePath $(BUILD_PATH)/$(APP).xcarchive
+	echo "Application built, starting the export archive..."
+	xcodebuild -exportArchive \
+		-exportOptionsPlist "exportOptions.plist" \
+		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
+		-exportPath $(BUILD_PATH)
+	echo "Project archived successfully (RELEASE)"
+
+archive-debug: clean
+	osascript -e 'display notification "Building debug version..." with title "Build the RawCullFB"'
+	echo "Building application (DEBUG)..."
+	xcodebuild \
+		-scheme $(APP) \
+		-destination 'platform=OS X,arch=arm64' \
+		-configuration Debug archive \
+		-archivePath $(BUILD_PATH)/$(APP).xcarchive
+	echo "Application built, starting the export archive..."
+	xcodebuild -exportArchive \
+		-exportOptionsPlist "exportOptions.plist" \
+		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
+		-exportPath $(BUILD_PATH)
+	echo "Debug build completed successfully"
+
+sign-app:
+	osascript -e 'display notification "Signing application..." with title "Build the RawCullFB"'
+	echo "Signing application with Developer ID..."
+	codesign --deep --force \
+		--options runtime \
+		--sign $(SIGNING_IDENTITY) \
+		--timestamp \
+		$(APP_PATH)
+	echo "Verifying signature..."
+	codesign --verify --deep --strict --verbose=2 $(APP_PATH)
+	codesign -dv --verbose=4 $(APP_PATH)
+	echo "Creating zip for notarization..."
+	ditto -c -k --keepParent $(APP_PATH) $(ZIP_PATH)
+	echo "Application signed successfully"
+
+notarize:
+	osascript -e 'display notification "Submitting app for notarization..." with title "Build the RawCullFB"'
+	echo "Submitting app for notarization..."
+	@RESULT=$$(xcrun notarytool submit --keychain-profile "RsyncUI" --wait $(ZIP_PATH) 2>&1); \
+	echo "$$RESULT"; \
+	if echo "$$RESULT" | grep -q "status: Accepted"; then \
+		echo "✅ RawCullFB successfully notarized"; \
+	else \
+		echo "❌ Notarization failed!"; \
+		SUBMISSION_ID=$$(echo "$$RESULT" | grep "id:" | head -1 | awk '{print $$2}'); \
+		echo "Fetching detailed log for submission: $$SUBMISSION_ID"; \
+		xcrun notarytool log "$$SUBMISSION_ID" --keychain-profile "RsyncUI"; \
+		exit 1; \
+	fi
+
+staple:
+	osascript -e 'display notification "Stapling the RawCullFB..." with title "Build the RawCullFB"'
+	echo "Stapling notarization ticket to application..."
+	xcrun stapler staple $(APP_PATH)
+	echo "Verifying stapled application..."
+	spctl -a -t exec -vvv $(APP_PATH)
+	osascript -e 'display notification "RawCullFB successfully stapled" with title "Build the RawCullFB"'
+	echo "✅ RawCullFB successfully stapled"
+
+prepare-dmg:
+	osascript -e 'display notification "Creating DMG..." with title "Build the RawCullFB"'
+	echo "Creating DMG installer..."
+	../create-dmg/create-dmg \
+		--volname "RawCullFB ver $(VERSION)" \
+		--background "./images/background.png" \
+		--window-pos 200 120 \
+		--window-size 500 320 \
+		--icon-size 80 \
+		--icon "RawCullFB.app" 125 175 \
+		--hide-extension "RawCullFB.app" \
+		--app-drop-link 375 175 \
+		--no-internet-enable \
+		--codesign 93M47F4H9T \
+		"$(APP).$(VERSION).dmg" \
+		$(APP_PATH)
+	echo "✅ DMG created successfully"
+	@echo "Submitting DMG for notarization..."
+	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(APP).$(VERSION).dmg"
+	
+	@echo "Stapling ticket to DMG..."
+	xcrun stapler staple "$(APP).$(VERSION).dmg"
+	
+	@echo "✅ DMG is now signed, notarized and stapled!"
+
+# --- HELPERS --- #
+clean:
+	rm -rf $(BUILD_PATH)
+	if [ -a $(PWD)/$(APP).$(VERSION).dmg ]; then rm $(PWD)/$(APP).$(VERSION).dmg; fi;
+
+check:
+	xcrun notarytool log f62c4146-0758-4942-baac-9575190858b8 --keychain-profile "RsyncUI"
+
+history:
+	xcrun notarytool history --keychain-profile "RsyncUI"
+
+check-cert:
+	@echo "Available code signing certificates:"
+	@security find-identity -v -p codesigning
+
+open:
+	osascript -e 'display notification "RawCullFB signed and ready for distribution" with title "Build the RawCullFB"'
+	echo "Opening working folder..."
+	open $(PWD)
+
+open-debug:
+	osascript -e 'display notification "RawCullFB debug build ready" with title "Build the RawCullFB"'
+	echo "Opening working folder..."
+	open $(PWD)
+	echo "Debug build complete - app is at: $(APP_PATH)"
+
+.PHONY: build debug test-smoke test-full test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug
