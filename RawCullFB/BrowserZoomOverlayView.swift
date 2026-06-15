@@ -43,14 +43,7 @@ struct BrowserZoomOverlayView: View {
 
             VStack {
                 HStack {
-                    if let file = viewModel.selectedFile {
-                        Text(file.name)
-                            .font(.headline)
-                            .lineLimit(1)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(.regularMaterial, in: Capsule())
-                    }
+                    ZoomMetadataPanel(fileName: viewModel.selectedFile?.name, exifInfo: viewModel.zoomExifInfo)
 
                     Spacer()
 
@@ -187,5 +180,44 @@ struct BrowserZoomOverlayView: View {
     private func close() {
         viewModel.closeZoom()
         resetToFit()
+    }
+}
+
+private struct ZoomMetadataPanel: View {
+    let fileName: String?
+    let exifInfo: BrowserExifInfo?
+
+    private let columns = [
+        GridItem(.fixed(86), alignment: .trailing),
+        GridItem(.flexible(minimum: 120), alignment: .leading),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let fileName {
+                Text(fileName)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            if let exifInfo, !exifInfo.isEmpty {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 5) {
+                    ForEach(exifInfo.rows, id: \.0) { label, value in
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                        Text(value)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+                .font(.caption)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: 420, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 }

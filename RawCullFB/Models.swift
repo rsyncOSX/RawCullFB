@@ -31,20 +31,6 @@ struct BrowserFolderItem: Identifiable, Hashable, Sendable {
     }
 }
 
-enum BrowserDisplayMode: String, CaseIterable, Identifiable {
-    case grid
-    case loupe
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .grid: "Grid"
-        case .loupe: "Loupe"
-        }
-    }
-}
-
 struct BrowserSettings: Codable, Sendable {
     var memoryCacheSizeMB = 8000
     var gridCacheSizeMB = 2000
@@ -58,6 +44,37 @@ struct BrowserSettings: Codable, Sendable {
         case thumbnailSizeGrid
         case thumbnailSizePreview
         case thumbnailSizeFullSize
+    }
+}
+
+struct BrowserExifInfo: Equatable, Sendable {
+    let camera: String?
+    let lens: String?
+    let exposure: String?
+    let aperture: String?
+    let focalLength: String?
+    let iso: String?
+    let capturedAt: String?
+    let dimensions: String?
+
+    nonisolated var rows: [(String, String)] {
+        [
+            ("Camera", camera),
+            ("Lens", lens),
+            ("Exposure", exposure),
+            ("Aperture", aperture),
+            ("Focal Length", focalLength),
+            ("ISO", iso),
+            ("Captured", capturedAt),
+            ("Dimensions", dimensions),
+        ].compactMap { label, value in
+            guard let value, !value.isEmpty else { return nil }
+            return (label, value)
+        }
+    }
+
+    nonisolated var isEmpty: Bool {
+        rows.isEmpty
     }
 }
 

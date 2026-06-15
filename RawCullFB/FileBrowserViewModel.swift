@@ -11,12 +11,12 @@ final class FileBrowserViewModel {
     var files: [BrowserFileItem] = []
     var selectedFolder: BrowserFolderItem?
     var selectedFileID: BrowserFileItem.ID?
-    var displayMode: BrowserDisplayMode = .grid
     var isShowingFolderPicker = false
     var isScanning = false
     var isCreatingThumbnails = false
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
+    var zoomExifInfo: BrowserExifInfo?
     var settings = BrowserSettings()
 
     @ObservationIgnored private var activeSecurityScopedURL: URL?
@@ -132,11 +132,15 @@ final class FileBrowserViewModel {
 
         zoomTask?.cancel()
         zoomImage = nil
+        zoomExifInfo = nil
         zoomOverlayVisible = true
         zoomTask = Task {
-            let image = await RawImageLoader.shared.extractedJPG(for: selectedFile.url)
+            async let image = RawImageLoader.shared.extractedJPG(for: selectedFile.url)
+            async let exifInfo = RawImageLoader.shared.exifInfo(for: selectedFile.url)
+            let (loadedImage, loadedExifInfo) = await (image, exifInfo)
             guard !Task.isCancelled else { return }
-            zoomImage = image
+            zoomImage = loadedImage
+            zoomExifInfo = loadedExifInfo
         }
     }
 
@@ -145,6 +149,7 @@ final class FileBrowserViewModel {
         zoomTask = nil
         zoomOverlayVisible = false
         zoomImage = nil
+        zoomExifInfo = nil
     }
 
     func navigateSelection(by delta: Int) {

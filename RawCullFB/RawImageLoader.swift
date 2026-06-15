@@ -7,6 +7,7 @@ actor RawImageLoader {
 
     private var thumbnailTasks: [URL: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
+    private var exifInfoTasks: [URL: Task<BrowserExifInfo?, Never>] = [:]
 
     private init() {}
 
@@ -132,6 +133,21 @@ actor RawImageLoader {
         return image
     }
 
+    func exifInfo(for url: URL) async -> BrowserExifInfo? {
+        if let existing = exifInfoTasks[url] {
+            return await existing.value
+        }
+
+        let task = Task<BrowserExifInfo?, Never>(priority: .utility) {
+            await Self.loadExifInfo(from: url)
+        }
+
+        exifInfoTasks[url] = task
+        let info = await task.value
+        exifInfoTasks[url] = nil
+        return info
+    }
+
     private nonisolated static func loadCGImage(from url: URL) async -> CGImage? {
         await Task.detached(priority: .userInitiated) {
             let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
@@ -141,6 +157,148 @@ actor RawImageLoader {
             CGImageSourceRemoveCacheAtIndex(source, 0)
             return image
         }.value
+    }
+
+    private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {
+        await Task.detached(priority: .utility) {
+            let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
+            guard let properties = imageProperties(from: url) ?? imageProperties(from: sidecarURL) else { return nil }
+            let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
+            let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+
+            let make = stringValue(tiff?[kCGImagePropertyTIFFMake])
+            let model = stringValue(tiff?[kCGImagePropertyTIFFModel])
+            let camera = joined([make, model])
+
+            let lens = stringValue(exif?[kCGImagePropertyExifLensModel])
+            let exposure = shutterDescription(numberValue(exif?[kCGImagePropertyExifExposureTime]))
+            let aperture = apertureDescription(numberValue(exif?[kCGImagePropertyExifFNumber]))
+            let focalLength = focalLengthDescription(numberValue(exif?[kCGImagePropertyExifFocalLength]))
+            let iso = isoDescription(exif?[kCGImagePropertyExifISOSpeedRatings])
+            let capturedAt = capturedAtDescription(
+                stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime])
+            )
+            let dimensions = dimensionsDescription(properties: properties, exif: exif)
+
+            let info = BrowserExifInfo(
+                camera: camera,
+                lens: lens,
+                exposure: exposure,
+                aperture: aperture,
+                focalLength: focalLength,
+                iso: iso,
+                capturedAt: capturedAt,
+                dimensions: dimensions,
+            )
+            return info.isEmpty ? nil : info
+        }.value
+    }
+
+    private nonisolated static func imageProperties(from url: URL) -> [CFString: Any]? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+        return properties
+    }
+
+    private nonisolated static func stringValue(_ value: Any?) -> String? {
+        switch value {
+        case let value as String:
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        case let value as NSNumber:
+            return value.stringValue
+        default:
+            return nil
+        }
+    }
+
+    private nonisolated static func numberValue(_ value: Any?) -> Double? {
+        switch value {
+        case let value as NSNumber:
+            return value.doubleValue
+        case let value as String:
+            return Double(value)
+        default:
+            return nil
+        }
+    }
+
+    private nonisolated static func intValue(_ value: Any?) -> Int? {
+        switch value {
+        case let value as NSNumber:
+            return value.intValue
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
+        }
+    }
+
+    private nonisolated static func joined(_ values: [String?]) -> String? {
+        var parts: [String] = []
+        for value in values.compactMap({ $0 }) where !parts.contains(value) {
+            parts.append(value)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
+    private nonisolated static func shutterDescription(_ seconds: Double?) -> String? {
+        guard let seconds, seconds > 0 else { return nil }
+        if seconds >= 1 {
+            return "\(trimmed(seconds)) s"
+        }
+        return "1/\(Int(round(1 / seconds))) s"
+    }
+
+    private nonisolated static func apertureDescription(_ aperture: Double?) -> String? {
+        guard let aperture, aperture > 0 else { return nil }
+        return "f/\(trimmed(aperture))"
+    }
+
+    private nonisolated static func focalLengthDescription(_ focalLength: Double?) -> String? {
+        guard let focalLength, focalLength > 0 else { return nil }
+        return "\(trimmed(focalLength)) mm"
+    }
+
+    private nonisolated static func isoDescription(_ value: Any?) -> String? {
+        if let values = value as? [Any],
+           let iso = values.compactMap({ intValue($0) }).first {
+            return "\(iso)"
+        }
+        if let iso = intValue(value) {
+            return "\(iso)"
+        }
+        return nil
+    }
+
+    private nonisolated static func capturedAtDescription(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+
+        guard let date = parser.date(from: value) else { return value }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private nonisolated static func dimensionsDescription(properties: [CFString: Any], exif: [CFString: Any]?) -> String? {
+        let width = intValue(properties[kCGImagePropertyPixelWidth]) ?? intValue(exif?[kCGImagePropertyExifPixelXDimension])
+        let height = intValue(properties[kCGImagePropertyPixelHeight]) ?? intValue(exif?[kCGImagePropertyExifPixelYDimension])
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return "\(width) x \(height)"
+    }
+
+    private nonisolated static func trimmed(_ value: Double) -> String {
+        let rounded = (value * 10).rounded() / 10
+        if rounded == rounded.rounded() {
+            return "\(Int(rounded))"
+        }
+        return String(format: "%.1f", rounded)
     }
 
     private nonisolated static func supportedFileCount(in folderURL: URL) -> Int {
