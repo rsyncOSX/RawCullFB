@@ -7,11 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E90ED2132FE07ABB0034DF74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E90ED2082FE07ABB0034DF74 /* Assets.xcassets */; };
+		E90ED21F2FE07AF50034DF74 /* RawCullFBicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */; };
 		FB0000010000000000000001 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000011 /* RawCullCore */; };
 		FB0000010000000000000002 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000012 /* RawParserKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E90ED2082FE07ABB0034DF74 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RawCullFBicon.icon; sourceTree = "<group>"; };
 		FB0000010000000000000003 /* RawCullFB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCullFB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB0000010000000000000004 /* RawCullFB.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RawCullFB.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -40,6 +44,8 @@
 		FB0000010000000000000007 = {
 			isa = PBXGroup;
 			children = (
+				E90ED2082FE07ABB0034DF74 /* Assets.xcassets */,
+				E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */,
 				FB0000010000000000000004 /* RawCullFB.entitlements */,
 				FB0000010000000000000005 /* RawCullFB */,
 				FB0000010000000000000008 /* Products */,
@@ -124,6 +130,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E90ED21F2FE07AF50034DF74 /* RawCullFBicon.icon in Resources */,
+				E90ED2132FE07ABB0034DF74 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,8 +277,8 @@
 		FB0000010000000000000015 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = RawCullFBicon;
 				AUTOMATION_APPLE_EVENTS = NO;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -322,8 +330,8 @@
 		FB0000010000000000000016 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = RawCullFBicon;
 				AUTOMATION_APPLE_EVENTS = NO;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
