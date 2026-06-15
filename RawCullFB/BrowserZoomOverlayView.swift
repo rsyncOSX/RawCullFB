@@ -279,15 +279,9 @@ private struct FocusPointMarker: View {
 
     var body: some View {
         let rect = fittedImageRect(imageSize: imageSize, containerSize: containerSize)
-        Circle()
-            .stroke(.yellow, lineWidth: 2)
-            .frame(width: 28, height: 28)
-            .overlay {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.yellow)
-            }
-            .shadow(color: .black.opacity(0.8), radius: 2)
+        Rectangle()
+            .fill(Color.red)
+            .frame(width: 8, height: 8)
             .position(
                 x: rect.minX + rect.width * focusPoint.normalizedX,
                 y: rect.minY + rect.height * focusPoint.normalizedY,

@@ -162,9 +162,9 @@ actor RawImageLoader {
     private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {
         await Task.detached(priority: .utility) {
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
-            guard let properties = imageProperties(from: url) ?? imageProperties(from: sidecarURL) else { return nil }
-            let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
-            let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+            let properties = imageProperties(from: url) ?? imageProperties(from: sidecarURL)
+            let exif = properties?[kCGImagePropertyExifDictionary] as? [CFString: Any]
+            let tiff = properties?[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
 
             let make = stringValue(tiff?[kCGImagePropertyTIFFMake])
             let model = stringValue(tiff?[kCGImagePropertyTIFFModel])
@@ -178,12 +178,14 @@ actor RawImageLoader {
             let capturedAt = capturedAtDescription(
                 stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime])
             )
-            let dimensions = dimensionsDescription(properties: properties, exif: exif)
-            let focusPoint = focusPoint(
-                from: exif?[kCGImagePropertyExifSubjectArea],
-                properties: properties,
-                exif: exif,
-            )
+            let dimensions = properties.flatMap { dimensionsDescription(properties: $0, exif: exif) }
+            let loadedFocusPoint = makerNoteFocusPoint(from: url) ?? properties.flatMap {
+                focusPoint(
+                    from: exif?[kCGImagePropertyExifSubjectArea],
+                    properties: $0,
+                    exif: exif,
+                )
+            }
 
             let info = BrowserExifInfo(
                 camera: camera,
@@ -194,7 +196,7 @@ actor RawImageLoader {
                 iso: iso,
                 capturedAt: capturedAt,
                 dimensions: dimensions,
-                focusPoint: focusPoint,
+                focusPoint: loadedFocusPoint,
             )
             return info.isEmpty ? nil : info
         }.value
@@ -297,6 +299,23 @@ actor RawImageLoader {
         let height = intValue(properties[kCGImagePropertyPixelHeight]) ?? intValue(exif?[kCGImagePropertyExifPixelYDimension])
         guard let width, let height, width > 0, height > 0 else { return nil }
         return "\(width) x \(height)"
+    }
+
+    private nonisolated static func makerNoteFocusPoint(from url: URL) -> BrowserFocusPoint? {
+        guard let focusLocation = RawFormatRegistry.format(for: url)?.focusLocation(from: url) else { return nil }
+        let values = focusLocation
+            .split(whereSeparator: \.isWhitespace)
+            .compactMap { Double($0) }
+
+        guard values.count == 4,
+              values[0] > 0,
+              values[1] > 0
+        else { return nil }
+
+        let normalizedX = values[2] / values[0]
+        let normalizedY = values[3] / values[1]
+        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
+        return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
     }
 
     private nonisolated static func focusPoint(
