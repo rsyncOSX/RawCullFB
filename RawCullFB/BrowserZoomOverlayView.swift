@@ -276,18 +276,54 @@ private struct FocusPointMarker: View {
     let containerSize: CGSize
 
     var body: some View {
-        let rect = fittedImageRect(imageSize: imageSize, containerSize: containerSize)
-        Rectangle()
-            .fill(Color.red)
-            .frame(width: 8, height: 8)
-            .position(
-                x: rect.minX + rect.width * focusPoint.normalizedX,
-                y: rect.minY + rect.height * focusPoint.normalizedY,
-            )
+        FocusPointBracketMarker(
+            normalizedX: CGFloat(focusPoint.normalizedX),
+            normalizedY: CGFloat(focusPoint.normalizedY),
+            boxSize: 16,
+            imageSize: imageSize,
+        )
+            .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
+            .frame(width: containerSize.width, height: containerSize.height)
             .accessibilityLabel("Focus point")
     }
+}
 
-    private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+private struct FocusPointBracketMarker: Shape {
+    let normalizedX: CGFloat
+    let normalizedY: CGFloat
+    let boxSize: CGFloat
+    let imageSize: CGSize
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        let drawRect = fittedImageRect(imageSize: imageSize, containerSize: rect.size)
+        let cx = drawRect.minX + normalizedX * drawRect.width
+        let cy = drawRect.minY + normalizedY * drawRect.height
+        let half = boxSize / 2
+        let bracket = boxSize * 0.28
+
+        var path = Path()
+        let corners: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+            (-1, -1, 1, 0), (-1, -1, 0, 1),
+            (1, -1, -1, 0), (1, -1, 0, 1),
+            (-1, 1, 1, 0), (-1, 1, 0, -1),
+            (1, 1, -1, 0), (1, 1, 0, -1),
+        ]
+
+        for (sx, sy, dx, dy) in corners {
+            path.move(to: CGPoint(x: cx + sx * half, y: cy + sy * half))
+            path.addLine(
+                to: CGPoint(
+                    x: cx + sx * half + dx * bracket,
+                    y: cy + sy * half + dy * bracket,
+                ),
+            )
+        }
+
+        return path
+    }
+
+    private nonisolated func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0,
               containerSize.width > 0, containerSize.height > 0
         else { return .zero }
