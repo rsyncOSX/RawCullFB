@@ -69,12 +69,16 @@ private struct BrowserThumbnailCell: View {
         }
         .contentShape(.rect)
         .task(id: file.url) {
-            if let cached = MemoryImageCache.shared.thumbnail(for: file.url) {
+            if let cached = await MemoryImageCache.shared.thumbnail(for: file.url) {
                 image = cached
                 return
             }
             isLoading = true
             image = await RawImageLoader.shared.thumbnail(for: file.url, targetSize: 200)
+            isLoading = false
+        }
+        .onDisappear {
+            image = nil
             isLoading = false
         }
     }

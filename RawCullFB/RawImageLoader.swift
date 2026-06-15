@@ -75,7 +75,7 @@ actor RawImageLoader {
     }
 
     func thumbnail(for url: URL, targetSize: Int = 200) async -> NSImage? {
-        if let cached = MemoryImageCache.shared.thumbnail(for: url) {
+        if let cached = await MemoryImageCache.shared.thumbnail(for: url) {
             return cached
         }
 
@@ -93,7 +93,7 @@ actor RawImageLoader {
             else { return nil }
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-            MemoryImageCache.shared.storeThumbnail(image, for: url)
+            await MemoryImageCache.shared.storeThumbnail(image, for: url)
             return image
         }
 
