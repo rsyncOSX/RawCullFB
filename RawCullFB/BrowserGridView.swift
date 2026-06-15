@@ -4,12 +4,12 @@ struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
 
     private let columns = [
-        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 14),
+        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 3),
     ]
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 3) {
                 ForEach(viewModel.files) { file in
                     BrowserThumbnailCell(
                         file: file,
@@ -60,31 +60,7 @@ private struct BrowserThumbnailCell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-
-                if let image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                } else if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .clipShape(.rect(cornerRadius: 6))
-            .overlay {
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 3 : 1)
-            }
+            thumbnail
 
             Text(file.name)
                 .font(.caption)
@@ -100,6 +76,40 @@ private struct BrowserThumbnailCell: View {
             isLoading = true
             image = await RawImageLoader.shared.thumbnail(for: file.url, targetSize: 200)
             isLoading = false
+        }
+    }
+
+    private var thumbnail: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(Color(nsColor: .controlBackgroundColor))
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                GeometryReader { geometry in
+                    thumbnailContent
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+            }
+            .clipShape(.rect(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 3 : 1)
+            }
+    }
+
+    @ViewBuilder
+    private var thumbnailContent: some View {
+        if let image {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .clipped()
+        } else if isLoading {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            Image(systemName: "photo")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
         }
     }
 }
