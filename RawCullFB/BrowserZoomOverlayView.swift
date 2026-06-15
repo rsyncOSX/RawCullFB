@@ -33,12 +33,12 @@ struct BrowserZoomOverlayView: View {
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .scaleEffect(viewModel.zoomScale)
                     .offset(viewModel.zoomOffset)
-                        .gesture(zoomPanGesture)
-                        .onTapGesture(count: 2) {
-                            withAnimation(.spring()) {
-                                viewModel.zoomScale > 1.0 ? resetToFit() : zoomToTwoX()
-                            }
+                    .gesture(zoomPanGesture)
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring()) {
+                            viewModel.zoomScale > 1.0 ? resetToFit() : zoomToTwoX()
                         }
+                    }
                 } else {
                     HStack(spacing: 10) {
                         ProgressView()
@@ -223,7 +223,7 @@ private struct ZoomMetadataPanel: View {
 
     private let columns = [
         GridItem(.fixed(86), alignment: .trailing),
-        GridItem(.flexible(minimum: 120), alignment: .leading),
+        GridItem(.flexible(minimum: 120), alignment: .leading)
     ]
 
     var body: some View {
@@ -282,10 +282,10 @@ private struct FocusPointMarker: View {
             boxSize: 16,
             imageSize: imageSize,
         )
-            .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
-            .frame(width: containerSize.width, height: containerSize.height)
-            .accessibilityLabel("Focus point")
+        .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+        .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
+        .frame(width: containerSize.width, height: containerSize.height)
+        .accessibilityLabel("Focus point")
     }
 }
 
@@ -307,7 +307,7 @@ private struct FocusPointBracketMarker: Shape {
             (-1, -1, 1, 0), (-1, -1, 0, 1),
             (1, -1, -1, 0), (1, -1, 0, 1),
             (-1, 1, 1, 0), (-1, 1, 0, -1),
-            (1, 1, -1, 0), (1, 1, 0, -1),
+            (1, 1, -1, 0), (1, 1, 0, -1)
         ]
 
         for (sx, sy, dx, dy) in corners {

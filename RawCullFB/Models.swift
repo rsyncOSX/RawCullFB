@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct BrowserFileItem: Identifiable, Hashable, Sendable {
+struct BrowserFileItem: Identifiable, Hashable {
     let id: UUID
     let url: URL
     let name: String
@@ -17,7 +17,7 @@ struct BrowserFileItem: Identifiable, Hashable, Sendable {
     }
 }
 
-struct BrowserFolderItem: Identifiable, Hashable, Sendable {
+struct BrowserFolderItem: Identifiable, Hashable {
     let id: URL
     let url: URL
     let name: String
@@ -31,7 +31,7 @@ struct BrowserFolderItem: Identifiable, Hashable, Sendable {
     }
 }
 
-struct BrowserSettings: Codable, Sendable {
+struct BrowserSettings: Codable {
     var memoryCacheSizeMB = 8000
     var gridCacheSizeMB = 2000
     var thumbnailSizeGrid = 200
@@ -47,7 +47,7 @@ struct BrowserSettings: Codable, Sendable {
     }
 }
 
-struct BrowserExifInfo: Equatable, Sendable {
+struct BrowserExifInfo: Equatable {
     let camera: String?
     let lens: String?
     let exposure: String?
@@ -68,7 +68,7 @@ struct BrowserExifInfo: Equatable, Sendable {
             ("ISO", iso),
             ("Captured", capturedAt),
             ("Dimensions", dimensions),
-            ("Focus Point", focusPoint?.description),
+            ("Focus Point", focusPoint?.description)
         ].compactMap { label, value in
             guard let value, !value.isEmpty else { return nil }
             return (label, value)
@@ -80,7 +80,7 @@ struct BrowserExifInfo: Equatable, Sendable {
     }
 }
 
-struct BrowserFocusPoint: Equatable, Sendable {
+struct BrowserFocusPoint: Equatable {
     let normalizedX: Double
     let normalizedY: Double
 

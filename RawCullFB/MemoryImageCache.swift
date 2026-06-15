@@ -4,16 +4,16 @@ import Foundation
 actor MemoryImageCache {
     static let shared = MemoryImageCache()
 
-    nonisolated(unsafe) private let thumbnailCache = NSCache<NSURL, CachedNSImage>()
-    nonisolated(unsafe) private let extractedJPGCache = NSCache<NSURL, CachedCGImage>()
+    private nonisolated(unsafe) let thumbnailCache = NSCache<NSURL, CachedNSImage>()
+    private nonisolated(unsafe) let extractedJPGCache = NSCache<NSURL, CachedCGImage>()
 
     private init() {}
 
     func apply(settings: BrowserSettings) {
         thumbnailCache.totalCostLimit = settings.gridCacheSizeMB * 1024 * 1024
-        thumbnailCache.countLimit = 10_000
+        thumbnailCache.countLimit = 10000
         extractedJPGCache.totalCostLimit = settings.memoryCacheSizeMB * 1024 * 1024
-        extractedJPGCache.countLimit = 2_000
+        extractedJPGCache.countLimit = 2000
     }
 
     nonisolated func thumbnail(for url: URL) -> NSImage? {

@@ -86,9 +86,9 @@ actor RawImageLoader {
         let task = Task<NSImage?, Never>(priority: .utility) {
             guard let format = RawFormatRegistry.format(for: url),
                   let cgImage = try? await format.extractThumbnail(
-                    from: url,
-                    maxDimension: CGFloat(targetSize),
-                    qualityCost: 4,
+                      from: url,
+                      maxDimension: CGFloat(targetSize),
+                      qualityCost: 4,
                   )
             else { return nil }
 
@@ -176,7 +176,7 @@ actor RawImageLoader {
             let focalLength = focalLengthDescription(numberValue(exif?[kCGImagePropertyExifFocalLength]))
             let iso = isoDescription(exif?[kCGImagePropertyExifISOSpeedRatings])
             let capturedAt = capturedAtDescription(
-                stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime])
+                stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime]),
             )
             let dimensions = properties.flatMap { dimensionsDescription(properties: $0, exif: exif) }
             let loadedFocusPoint = makerNoteFocusPoint(from: url) ?? properties.flatMap {
@@ -215,8 +215,10 @@ actor RawImageLoader {
         case let value as String:
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
+
         case let value as NSNumber:
             return value.stringValue
+
         default:
             return nil
         }
@@ -225,22 +227,26 @@ actor RawImageLoader {
     private nonisolated static func numberValue(_ value: Any?) -> Double? {
         switch value {
         case let value as NSNumber:
-            return value.doubleValue
+            value.doubleValue
+
         case let value as String:
-            return Double(value)
+            Double(value)
+
         default:
-            return nil
+            nil
         }
     }
 
     private nonisolated static func intValue(_ value: Any?) -> Int? {
         switch value {
         case let value as NSNumber:
-            return value.intValue
+            value.intValue
+
         case let value as String:
-            return Int(value)
+            Int(value)
+
         default:
-            return nil
+            nil
         }
     }
 
@@ -314,7 +320,7 @@ actor RawImageLoader {
 
         let normalizedX = values[2] / values[0]
         let normalizedY = values[3] / values[1]
-        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
+        guard (0 ... 1).contains(normalizedX), (0 ... 1).contains(normalizedY) else { return nil }
         return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
     }
 
@@ -332,18 +338,20 @@ actor RawImageLoader {
 
         let normalizedX = values[0] / width
         let normalizedY = values[1] / height
-        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
+        guard (0 ... 1).contains(normalizedX), (0 ... 1).contains(normalizedY) else { return nil }
         return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
     }
 
     private nonisolated static func numericArray(_ value: Any?) -> [Double] {
         switch value {
         case let values as [Any]:
-            return values.compactMap(numberValue)
+            values.compactMap(numberValue)
+
         case let values as NSArray:
-            return values.compactMap(numberValue)
+            values.compactMap(numberValue)
+
         default:
-            return []
+            []
         }
     }
 

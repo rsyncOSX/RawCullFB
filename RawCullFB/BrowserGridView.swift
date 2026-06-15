@@ -4,7 +4,7 @@ struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
 
     private let columns = [
-        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 3),
+        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 3)
     ]
 
     var body: some View {
