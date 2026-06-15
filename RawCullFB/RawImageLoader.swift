@@ -104,7 +104,7 @@ actor RawImageLoader {
     }
 
     func extractedJPG(for url: URL) async -> CGImage? {
-        if let cached = MemoryImageCache.shared.extractedJPG(for: url) {
+        if let cached = await MemoryImageCache.shared.extractedJPG(for: url) {
             return cached
         }
 
@@ -115,7 +115,7 @@ actor RawImageLoader {
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let sidecarImage = await Self.loadCGImage(from: sidecarURL) {
-                MemoryImageCache.shared.storeExtractedJPG(sidecarImage, for: url)
+                await MemoryImageCache.shared.storeExtractedJPG(sidecarImage, for: url)
                 return sidecarImage
             }
 
@@ -123,7 +123,7 @@ actor RawImageLoader {
                   let extracted = await format.extractFullJPEG(from: url, fullSize: false)
             else { return nil }
 
-            MemoryImageCache.shared.storeExtractedJPG(extracted, for: url)
+            await MemoryImageCache.shared.storeExtractedJPG(extracted, for: url)
             return extracted
         }
 

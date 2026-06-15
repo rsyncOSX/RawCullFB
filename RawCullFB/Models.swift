@@ -34,6 +34,7 @@ struct BrowserFolderItem: Identifiable, Hashable {
 struct BrowserSettings: Codable {
     var memoryCacheSizeMB = 8000
     var gridCacheSizeMB = 2000
+    var maxCachedExtractedJPGs = 12
     var thumbnailSizeGrid = 200
     var thumbnailSizePreview = 1616
     var thumbnailSizeFullSize = 8700
@@ -41,9 +42,22 @@ struct BrowserSettings: Codable {
     enum CodingKeys: String, CodingKey {
         case memoryCacheSizeMB
         case gridCacheSizeMB
+        case maxCachedExtractedJPGs
         case thumbnailSizeGrid
         case thumbnailSizePreview
         case thumbnailSizeFullSize
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        memoryCacheSizeMB = try container.decodeIfPresent(Int.self, forKey: .memoryCacheSizeMB) ?? memoryCacheSizeMB
+        gridCacheSizeMB = try container.decodeIfPresent(Int.self, forKey: .gridCacheSizeMB) ?? gridCacheSizeMB
+        maxCachedExtractedJPGs = try container.decodeIfPresent(Int.self, forKey: .maxCachedExtractedJPGs) ?? maxCachedExtractedJPGs
+        thumbnailSizeGrid = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeGrid) ?? thumbnailSizeGrid
+        thumbnailSizePreview = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizePreview) ?? thumbnailSizePreview
+        thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
     }
 }
 
