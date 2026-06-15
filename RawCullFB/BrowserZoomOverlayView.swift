@@ -53,7 +53,7 @@ struct BrowserZoomOverlayView: View {
             }
 
             VStack {
-                HStack {
+                ZStack(alignment: .top) {
                     ZoomMetadataPanel(
                         fileName: viewModel.selectedFile?.name,
                         exifInfo: viewModel.zoomExifInfo,
@@ -61,35 +61,33 @@ struct BrowserZoomOverlayView: View {
                     )
                     .offset(viewModel.zoomMetadataOffset)
                     .gesture(metadataDragGesture)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
 
-                    Spacer()
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel.navigateSelection(by: -1)
+                        } label: {
+                            Image(systemName: "chevron.left.circle")
+                        }
+                        .help("Previous image")
 
-                    Button {
-                        viewModel.navigateSelection(by: -1)
-                    } label: {
-                        Image(systemName: "chevron.left.circle")
+                        Button {
+                            viewModel.navigateSelection(by: 1)
+                        } label: {
+                            Image(systemName: "chevron.right.circle")
+                        }
+                        .help("Next image")
+
+                        Button {
+                            close()
+                        } label: {
+                            Image(systemName: "xmark.circle")
+                        }
+                        .help("Close")
                     }
                     .font(.title2)
                     .buttonStyle(.plain)
-                    .help("Previous image")
-
-                    Button {
-                        viewModel.navigateSelection(by: 1)
-                    } label: {
-                        Image(systemName: "chevron.right.circle")
-                    }
-                    .font(.title2)
-                    .buttonStyle(.plain)
-                    .help("Next image")
-
-                    Button {
-                        close()
-                    } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .font(.title2)
-                    .buttonStyle(.plain)
-                    .help("Close")
+                    .frame(maxWidth: .infinity, alignment: .topTrailing)
                 }
                 .padding()
 
