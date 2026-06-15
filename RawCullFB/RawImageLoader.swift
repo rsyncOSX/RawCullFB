@@ -179,6 +179,11 @@ actor RawImageLoader {
                 stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime])
             )
             let dimensions = dimensionsDescription(properties: properties, exif: exif)
+            let focusPoint = focusPoint(
+                from: exif?[kCGImagePropertyExifSubjectArea],
+                properties: properties,
+                exif: exif,
+            )
 
             let info = BrowserExifInfo(
                 camera: camera,
@@ -189,6 +194,7 @@ actor RawImageLoader {
                 iso: iso,
                 capturedAt: capturedAt,
                 dimensions: dimensions,
+                focusPoint: focusPoint,
             )
             return info.isEmpty ? nil : info
         }.value
@@ -291,6 +297,35 @@ actor RawImageLoader {
         let height = intValue(properties[kCGImagePropertyPixelHeight]) ?? intValue(exif?[kCGImagePropertyExifPixelYDimension])
         guard let width, let height, width > 0, height > 0 else { return nil }
         return "\(width) x \(height)"
+    }
+
+    private nonisolated static func focusPoint(
+        from value: Any?,
+        properties: [CFString: Any],
+        exif: [CFString: Any]?,
+    ) -> BrowserFocusPoint? {
+        let values = numericArray(value)
+        guard values.count >= 2 else { return nil }
+
+        let width = numberValue(properties[kCGImagePropertyPixelWidth]) ?? numberValue(exif?[kCGImagePropertyExifPixelXDimension])
+        let height = numberValue(properties[kCGImagePropertyPixelHeight]) ?? numberValue(exif?[kCGImagePropertyExifPixelYDimension])
+        guard let width, let height, width > 0, height > 0 else { return nil }
+
+        let normalizedX = values[0] / width
+        let normalizedY = values[1] / height
+        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
+        return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
+    }
+
+    private nonisolated static func numericArray(_ value: Any?) -> [Double] {
+        switch value {
+        case let values as [Any]:
+            return values.compactMap(numberValue)
+        case let values as NSArray:
+            return values.compactMap(numberValue)
+        default:
+            return []
+        }
     }
 
     private nonisolated static func trimmed(_ value: Double) -> String {

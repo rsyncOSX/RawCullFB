@@ -17,6 +17,11 @@ final class FileBrowserViewModel {
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
     var zoomExifInfo: BrowserExifInfo?
+    var zoomScale: CGFloat = 1.0
+    var zoomOffset: CGSize = .zero
+    var isZoomMetadataCollapsed = false
+    var zoomMetadataOffset: CGSize = .zero
+    var isZoomFocusPointVisible = false
     var settings = BrowserSettings()
 
     @ObservationIgnored private var activeSecurityScopedURL: URL?
@@ -81,9 +86,11 @@ final class FileBrowserViewModel {
         guard isSidebarSelectionEnabled else { return }
         selectedFolder = folder
         selectedFileID = nil
+        resetZoomInterfaceState()
         isCreatingThumbnails = false
         scanTask?.cancel()
         thumbnailTask?.cancel()
+        closeZoom()
 
         scanTask = Task {
             isScanning = true
@@ -150,6 +157,14 @@ final class FileBrowserViewModel {
         zoomOverlayVisible = false
         zoomImage = nil
         zoomExifInfo = nil
+    }
+
+    func resetZoomInterfaceState() {
+        zoomScale = 1.0
+        zoomOffset = .zero
+        isZoomMetadataCollapsed = false
+        zoomMetadataOffset = .zero
+        isZoomFocusPointVisible = false
     }
 
     func navigateSelection(by delta: Int) {

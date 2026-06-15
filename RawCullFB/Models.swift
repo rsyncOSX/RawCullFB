@@ -56,6 +56,7 @@ struct BrowserExifInfo: Equatable, Sendable {
     let iso: String?
     let capturedAt: String?
     let dimensions: String?
+    let focusPoint: BrowserFocusPoint?
 
     nonisolated var rows: [(String, String)] {
         [
@@ -67,6 +68,7 @@ struct BrowserExifInfo: Equatable, Sendable {
             ("ISO", iso),
             ("Captured", capturedAt),
             ("Dimensions", dimensions),
+            ("Focus Point", focusPoint?.description),
         ].compactMap { label, value in
             guard let value, !value.isEmpty else { return nil }
             return (label, value)
@@ -75,6 +77,15 @@ struct BrowserExifInfo: Equatable, Sendable {
 
     nonisolated var isEmpty: Bool {
         rows.isEmpty
+    }
+}
+
+struct BrowserFocusPoint: Equatable, Sendable {
+    let normalizedX: Double
+    let normalizedY: Double
+
+    nonisolated var description: String {
+        "\(Int((normalizedX * 100).rounded()))%, \(Int((normalizedY * 100).rounded()))%"
     }
 }
 
