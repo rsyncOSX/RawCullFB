@@ -7,15 +7,7 @@ struct BrowserSidebarView: View {
         List(selection: selectedFolderBinding) {
             Section("Catalogs") {
                 ForEach(viewModel.rootFolders) { folder in
-                    folderRow(folder)
-                }
-            }
-
-            if !viewModel.childFolders.isEmpty {
-                Section("Folders") {
-                    ForEach(viewModel.childFolders) { folder in
-                        folderRow(folder)
-                    }
+                    FolderOutlineRow(viewModel: viewModel, folder: folder)
                 }
             }
         }
@@ -35,14 +27,49 @@ struct BrowserSidebarView: View {
         Binding {
             viewModel.selectedFolder?.id
         } set: { id in
-            guard let id else { return }
-            if let folder = (viewModel.rootFolders + viewModel.childFolders).first(where: { $0.id == id }) {
+            guard let id, viewModel.isSidebarSelectionEnabled else { return }
+            if let folder = viewModel.folder(for: id) {
                 viewModel.selectFolder(folder)
             }
         }
     }
+}
 
-    private func folderRow(_ folder: BrowserFolderItem) -> some View {
+private struct FolderOutlineRow: View {
+    @Bindable var viewModel: FileBrowserViewModel
+    let folder: BrowserFolderItem
+
+    var body: some View {
+        if shouldShowDisclosure {
+            DisclosureGroup(isExpanded: expandedBinding) {
+                ForEach(viewModel.children(of: folder)) { child in
+                    FolderOutlineRow(viewModel: viewModel, folder: child)
+                }
+            } label: {
+                folderLabel
+            }
+            .tag(folder.id)
+            .selectionDisabled(!viewModel.isSidebarSelectionEnabled)
+        } else {
+            folderLabel
+                .tag(folder.id)
+                .selectionDisabled(!viewModel.isSidebarSelectionEnabled)
+        }
+    }
+
+    private var shouldShowDisclosure: Bool {
+        !viewModel.hasLoadedChildren(for: folder) || !viewModel.children(of: folder).isEmpty
+    }
+
+    private var expandedBinding: Binding<Bool> {
+        Binding {
+            viewModel.isFolderExpanded(folder)
+        } set: { isExpanded in
+            viewModel.setFolder(folder, expanded: isExpanded)
+        }
+    }
+
+    private var folderLabel: some View {
         Label {
             HStack {
                 Text(folder.name)
@@ -59,6 +86,5 @@ struct BrowserSidebarView: View {
             Image(systemName: folder.supportedFileCount > 0 ? "folder.fill" : "folder")
                 .foregroundStyle(folder.supportedFileCount > 0 ? .blue : .secondary)
         }
-        .tag(folder.id)
     }
 }

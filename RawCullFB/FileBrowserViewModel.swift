@@ -5,7 +5,9 @@ import Observation
 @Observable @MainActor
 final class FileBrowserViewModel {
     var rootFolders: [BrowserFolderItem] = []
-    var childFolders: [BrowserFolderItem] = []
+    var folderChildren: [BrowserFolderItem.ID: [BrowserFolderItem]] = [:]
+    var expandedFolderIDs: Set<BrowserFolderItem.ID> = []
+    var loadingFolderIDs: Set<BrowserFolderItem.ID> = []
     var files: [BrowserFileItem] = []
     var selectedFolder: BrowserFolderItem?
     var selectedFileID: BrowserFileItem.ID?
@@ -24,6 +26,10 @@ final class FileBrowserViewModel {
 
     var selectedFile: BrowserFileItem? {
         files.first { $0.id == selectedFileID }
+    }
+
+    var isSidebarSelectionEnabled: Bool {
+        !isCreatingThumbnails
     }
 
     var title: String {
@@ -46,9 +52,36 @@ final class FileBrowserViewModel {
         selectFolder(folder)
     }
 
+    func children(of folder: BrowserFolderItem) -> [BrowserFolderItem] {
+        folderChildren[folder.id] ?? []
+    }
+
+    func hasLoadedChildren(for folder: BrowserFolderItem) -> Bool {
+        folderChildren[folder.id] != nil
+    }
+
+    func isFolderExpanded(_ folder: BrowserFolderItem) -> Bool {
+        expandedFolderIDs.contains(folder.id)
+    }
+
+    func setFolder(_ folder: BrowserFolderItem, expanded: Bool) {
+        if expanded {
+            expandedFolderIDs.insert(folder.id)
+            loadChildrenIfNeeded(for: folder)
+        } else {
+            expandedFolderIDs.remove(folder.id)
+        }
+    }
+
+    func folder(for id: BrowserFolderItem.ID) -> BrowserFolderItem? {
+        rootFolders.first { $0.id == id } ?? folderChildren.values.lazy.flatMap { $0 }.first { $0.id == id }
+    }
+
     func selectFolder(_ folder: BrowserFolderItem) {
+        guard isSidebarSelectionEnabled else { return }
         selectedFolder = folder
         selectedFileID = nil
+        isCreatingThumbnails = false
         scanTask?.cancel()
         thumbnailTask?.cancel()
 
@@ -58,7 +91,7 @@ final class FileBrowserViewModel {
             async let discoveredFiles = RawImageLoader.shared.discoverSupportedFiles(at: folder.url)
             let (loadedFolders, loadedFiles) = await (folders, discoveredFiles)
             guard !Task.isCancelled else { return }
-            childFolders = loadedFolders
+            folderChildren[folder.id] = loadedFolders
             files = loadedFiles
             selectedFileID = loadedFiles.first?.id
             isScanning = false
@@ -72,6 +105,18 @@ final class FileBrowserViewModel {
                     self.isCreatingThumbnails = false
                 }
             }
+        }
+    }
+
+    private func loadChildrenIfNeeded(for folder: BrowserFolderItem) {
+        guard folderChildren[folder.id] == nil, !loadingFolderIDs.contains(folder.id) else { return }
+
+        loadingFolderIDs.insert(folder.id)
+        Task {
+            let loadedFolders = await RawImageLoader.shared.discoverFolders(at: folder.url)
+            guard !Task.isCancelled else { return }
+            folderChildren[folder.id] = loadedFolders
+            loadingFolderIDs.remove(folder.id)
         }
     }
 
