@@ -97,9 +97,21 @@ struct BrowserZoomOverlayView: View {
                     Button { decreaseZoom() } label: { Image(systemName: "minus.magnifyingglass") }
                     Button { withAnimation(.spring()) { resetToFit() } } label: { Image(systemName: "1.magnifyingglass") }
                     Button { increaseZoom() } label: { Image(systemName: "plus.magnifyingglass") }
-                    Toggle("Focus Point", isOn: $viewModel.isZoomFocusPointVisible)
+                    Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
+                        HStack(spacing: 6) {
+                            Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
+                                .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
+                                .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+
+                            Text("A")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
                         .toggleStyle(.button)
                         .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
+                        .accessibilityLabel("Focus Point")
                         .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
                 }
                 .buttonStyle(.bordered)
@@ -132,10 +144,11 @@ struct BrowserZoomOverlayView: View {
             close()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-aA")) { press in
             switch press.characters {
             case "+": increaseZoom()
             case "-": decreaseZoom()
+            case "a", "A": toggleFocusPoint()
             default: break
             }
             return .handled
@@ -185,6 +198,13 @@ struct BrowserZoomOverlayView: View {
         withAnimation(.spring()) {
             viewModel.zoomScale = min(viewModel.zoomScale + 0.25, 5.0)
             lastScale = viewModel.zoomScale
+        }
+    }
+
+    private func toggleFocusPoint() {
+        guard viewModel.zoomExifInfo?.focusPoint != nil else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            viewModel.isZoomFocusPointVisible.toggle()
         }
     }
 
