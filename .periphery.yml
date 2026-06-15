@@ -1,0 +1,11 @@
+project: RawCull.xcodeproj
+retain_objc_accessible: true
+retain_public: false
+schemes:
+- RawCull
+index_exclude:
+- RawCull/Model/ParametersRsync/SynchronizeConfiguration.swift 
+- RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
+- RawCull/Model/ParametersRsync/PrepareOutputFromRsync.swift
+- RawCull/Extensions/extension+String+Date.swift
+- RawCull/Extensions/extension+Thread+Logger.swift

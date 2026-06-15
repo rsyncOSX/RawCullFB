@@ -1,0 +1,24 @@
+{
+  "originHash" : "28f497e3ea0d19279bff3538d8a66ea39cff9bfcd78530cae2c14f9c05716807",
+  "pins" : [
+    {
+      "identity" : "rawcullcore",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/RawCullCore.git",
+      "state" : {
+        "revision" : "91138b766390dd60c537c4f3846f79bb83dead9c",
+        "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "rawparserkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/RawParserKit.git",
+      "state" : {
+        "revision" : "f0c8601b69c586ab24398b74ea6535109bbb7574",
+        "version" : "1.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}
