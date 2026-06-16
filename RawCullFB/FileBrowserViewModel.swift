@@ -28,6 +28,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var zoomTask: Task<Void, Never>?
+    @ObservationIgnored private var scanID = UUID()
 
     var selectedFile: BrowserFileItem? {
         files.first { $0.id == selectedFileID }
@@ -84,6 +85,10 @@ final class FileBrowserViewModel {
 
     func selectFolder(_ folder: BrowserFolderItem) {
         guard isSidebarSelectionEnabled else { return }
+        guard startSecurityScopedAccess(for: securityScopedURL(for: folder.url)) else { return }
+
+        let currentScanID = UUID()
+        scanID = currentScanID
         selectedFolder = folder
         selectedFileID = nil
         resetZoomInterfaceState()
@@ -97,7 +102,7 @@ final class FileBrowserViewModel {
             async let folders = RawImageLoader.shared.discoverFolders(at: folder.url)
             async let discoveredFiles = RawImageLoader.shared.discoverSupportedFiles(at: folder.url)
             let (loadedFolders, loadedFiles) = await (folders, discoveredFiles)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, currentScanID == scanID else { return }
             folderChildren[folder.id] = loadedFolders
             files = loadedFiles
             selectedFileID = loadedFiles.first?.id
@@ -109,6 +114,7 @@ final class FileBrowserViewModel {
                 await RawImageLoader.shared.preloadThumbnails(for: loadedFiles, targetSize: 200)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    guard currentScanID == self.scanID else { return }
                     self.isCreatingThumbnails = false
                 }
             }
@@ -185,12 +191,38 @@ final class FileBrowserViewModel {
         activeSecurityScopedURL = nil
     }
 
+    private func securityScopedURL(for folderURL: URL) -> URL {
+        let standardizedFolderURL = folderURL.standardizedFileURL
+        return rootFolders
+            .map(\.url)
+            .filter { rootURL in
+                standardizedFolderURL.isEqualOrDescendant(of: rootURL.standardizedFileURL)
+            }
+            .max { first, second in
+                first.standardizedFileURL.pathComponents.count < second.standardizedFileURL.pathComponents.count
+            } ?? folderURL
+    }
+
     private func startSecurityScopedAccess(for url: URL) -> Bool {
+        if activeSecurityScopedURL == url {
+            return true
+        }
+
         if activeSecurityScopedURL != url {
             stopActiveSecurityScopedAccess()
         }
         guard url.startAccessingSecurityScopedResource() else { return false }
         activeSecurityScopedURL = url
         return true
+    }
+}
+
+private extension URL {
+    func isEqualOrDescendant(of ancestorURL: URL) -> Bool {
+        let pathComponents = standardizedFileURL.pathComponents
+        let ancestorPathComponents = ancestorURL.standardizedFileURL.pathComponents
+
+        guard pathComponents.count >= ancestorPathComponents.count else { return false }
+        return zip(pathComponents, ancestorPathComponents).allSatisfy(==)
     }
 }
