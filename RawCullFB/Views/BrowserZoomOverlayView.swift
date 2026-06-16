@@ -57,6 +57,7 @@ struct BrowserZoomOverlayView: View {
                     ZoomMetadataPanel(
                         fileName: viewModel.selectedFile?.name,
                         exifInfo: viewModel.zoomExifInfo,
+                        image: viewModel.zoomImage,
                         isCollapsed: $viewModel.isZoomMetadataCollapsed,
                     )
                     .offset(viewModel.zoomMetadataOffset)
@@ -239,6 +240,7 @@ struct BrowserZoomOverlayView: View {
 private struct ZoomMetadataPanel: View {
     let fileName: String?
     let exifInfo: BrowserExifInfo?
+    let image: CGImage?
     @Binding var isCollapsed: Bool
 
     private let columns = [
@@ -269,22 +271,34 @@ private struct ZoomMetadataPanel: View {
                 .help(isCollapsed ? "Expand EXIF data" : "Collapse EXIF data")
             }
 
-            if !isCollapsed, let exifInfo, !exifInfo.isEmpty {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 5) {
-                    ForEach(exifInfo.rows, id: \.0) { label, value in
-                        Text(label)
+            if !isCollapsed {
+                if let image {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Histogram")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(value)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+
+                        BrowserHistogramView(image: image)
                     }
                 }
-                .font(.caption)
+
+                if let exifInfo, !exifInfo.isEmpty {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 5) {
+                        ForEach(exifInfo.rows, id: \.0) { label, value in
+                            Text(label)
+                                .foregroundStyle(.secondary)
+                            Text(value)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                    .font(.caption)
+                }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(maxWidth: 420, alignment: .leading)
+        .frame(maxWidth: 320, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
     }

@@ -119,8 +119,7 @@ struct BrowserExifInfo: Equatable {
             ("Focal Length", focalLength),
             ("ISO", iso),
             ("Captured", capturedAt),
-            ("Dimensions", dimensions),
-            ("Focus Point", focusPoint?.description)
+            ("Dimensions", dimensions)
         ].compactMap { label, value in
             guard let value, !value.isEmpty else { return nil }
             return (label, value)
@@ -135,10 +134,6 @@ struct BrowserExifInfo: Equatable {
 struct BrowserFocusPoint: Equatable {
     let normalizedX: Double
     let normalizedY: Double
-
-    nonisolated var description: String {
-        "\(Int((normalizedX * 100).rounded()))%, \(Int((normalizedY * 100).rounded()))%"
-    }
 }
 
 final class CachedNSImage: NSObject, @unchecked Sendable {
