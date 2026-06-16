@@ -3,6 +3,7 @@ import SwiftUI
 struct FileBrowserView: View {
     @Bindable var viewModel: FileBrowserViewModel
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
+    @State private var folderPickerPurpose: FolderPickerPurpose?
 
     var body: some View {
         ZStack {
@@ -20,14 +21,28 @@ struct FileBrowserView: View {
                     .zIndex(10)
             }
         }
-        .fileImporter(isPresented: $viewModel.isShowingFolderPicker, allowedContentTypes: [.folder]) { result in
+        .fileImporter(isPresented: folderPickerBinding, allowedContentTypes: [.folder]) { result in
+            let purpose = folderPickerPurpose ?? .addRootFolder
+            folderPickerPurpose = nil
             guard let url = try? result.get() else { return }
-            viewModel.addRootFolder(url)
+
+            switch purpose {
+            case .addRootFolder:
+                viewModel.addRootFolder(url)
+            case .copyDestination:
+                Task {
+                    await viewModel.copySelectedFiles(to: url)
+                }
+            }
         }
-        .fileImporter(isPresented: $viewModel.isShowingCopyDestinationPicker, allowedContentTypes: [.folder]) { result in
-            guard let url = try? result.get() else { return }
-            Task {
-                await viewModel.copySelectedFiles(to: url)
+        .onChange(of: viewModel.isShowingFolderPicker) { _, isShowing in
+            if isShowing {
+                folderPickerPurpose = .addRootFolder
+            }
+        }
+        .onChange(of: viewModel.isShowingCopyDestinationPicker) { _, isShowing in
+            if isShowing {
+                folderPickerPurpose = .copyDestination
             }
         }
         .alert("Copy Failed", isPresented: copyFailureBinding) {
@@ -43,6 +58,7 @@ struct FileBrowserView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Button {
+                folderPickerPurpose = .addRootFolder
                 viewModel.isShowingFolderPicker = true
             } label: {
                 Label("Add Folder", systemImage: "folder.badge.plus")
@@ -52,6 +68,7 @@ struct FileBrowserView: View {
 
         ToolbarItemGroup {
             Button {
+                folderPickerPurpose = .copyDestination
                 viewModel.isShowingCopyDestinationPicker = true
             } label: {
                 Label("Copy Selected Files", systemImage: "doc.on.doc")
@@ -75,6 +92,17 @@ struct FileBrowserView: View {
         }
     }
 
+    private var folderPickerBinding: Binding<Bool> {
+        Binding {
+            viewModel.isShowingFolderPicker || viewModel.isShowingCopyDestinationPicker
+        } set: { isPresented in
+            if !isPresented {
+                viewModel.isShowingFolderPicker = false
+                viewModel.isShowingCopyDestinationPicker = false
+            }
+        }
+    }
+
     private var copyButtonHelp: String {
         if viewModel.selectedFileCount == 0 {
             return "Select files to copy"
@@ -91,4 +119,9 @@ struct FileBrowserView: View {
             }
         }
     }
+}
+
+private enum FolderPickerPurpose {
+    case addRootFolder
+    case copyDestination
 }
