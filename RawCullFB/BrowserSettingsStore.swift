@@ -20,7 +20,7 @@ enum BrowserSettingsStore {
     private static var settingsURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport
-            .appendingPathComponent("RawCull", isDirectory: true)
+            .appendingPathComponent("RawCullFB", isDirectory: true)
             .appendingPathComponent("settings.json")
     }
 }
