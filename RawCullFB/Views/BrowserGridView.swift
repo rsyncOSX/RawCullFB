@@ -43,6 +43,13 @@ struct BrowserGridView: View {
         .onAppear {
             isFocused = true
         }
+        .onChange(of: viewModel.zoomOverlayVisible) { _, isVisible in
+            guard !isVisible else { return }
+            Task { @MainActor in
+                await Task.yield()
+                isFocused = true
+            }
+        }
         .onKeyPress(.leftArrow) {
             viewModel.navigateSelection(by: -1)
             return .handled
