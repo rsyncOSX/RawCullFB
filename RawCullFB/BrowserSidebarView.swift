@@ -21,6 +21,35 @@ struct BrowserSidebarView: View {
                 )
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Spacer()
+                Button(role: .destructive) {
+                    viewModel.isShowingClearCatalogConfirmation = true
+                } label: {
+                    Label("Clear Remembered Catalogs", systemImage: "trash")
+                        .labelStyle(.iconOnly)
+                }
+                .disabled(viewModel.rootFolders.isEmpty)
+                .help("Clear remembered catalogs")
+                .buttonStyle(.borderless)
+            }
+            .padding(10)
+            .background(.bar)
+        }
+        .confirmationDialog(
+            "Clear remembered catalogs?",
+            isPresented: $viewModel.isShowingClearCatalogConfirmation,
+        ) {
+            Button("Clear Catalogs", role: .destructive) {
+                Task {
+                    await viewModel.clearRememberedCatalogs()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes saved catalog entries from the sidebar. It does not delete any files.")
+        }
     }
 
     private var selectedFolderBinding: Binding<BrowserFolderItem.ID?> {

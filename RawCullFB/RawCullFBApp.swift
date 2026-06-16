@@ -18,6 +18,7 @@ struct RawCullFBApp: App {
                 .background(.windowBackground)
                 .task {
                     await viewModel.loadSettings()
+                    await viewModel.loadRememberedCatalogs()
                 }
                 .onDisappear {
                     viewModel.stopActiveSecurityScopedAccess()

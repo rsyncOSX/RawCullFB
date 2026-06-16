@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct BrowserGridView: View {
@@ -13,10 +14,11 @@ struct BrowserGridView: View {
                 ForEach(viewModel.files) { file in
                     BrowserThumbnailCell(
                         file: file,
-                        isSelected: viewModel.selectedFileID == file.id,
+                        isFocused: viewModel.selectedFileID == file.id,
+                        isSelected: viewModel.selectedFileIDs.contains(file.id),
                     )
                     .onTapGesture {
-                        viewModel.selectFile(file)
+                        select(file)
                     }
                     .onTapGesture(count: 2) {
                         viewModel.openZoom(for: file)
@@ -49,10 +51,22 @@ struct BrowserGridView: View {
             return .handled
         }
     }
+
+    private func select(_ file: BrowserFileItem) {
+        let modifiers = NSEvent.modifierFlags
+        if modifiers.contains(.shift) {
+            viewModel.extendFileSelection(to: file)
+        } else if modifiers.contains(.command) {
+            viewModel.toggleFileSelection(file)
+        } else {
+            viewModel.selectOnlyFile(file)
+        }
+    }
 }
 
 private struct BrowserThumbnailCell: View {
     let file: BrowserFileItem
+    let isFocused: Bool
     let isSelected: Bool
 
     @State private var image: NSImage?
@@ -96,8 +110,27 @@ private struct BrowserThumbnailCell: View {
             .clipShape(.rect(cornerRadius: 6))
             .overlay {
                 RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 3 : 1)
+                    .strokeBorder(borderColor, lineWidth: isSelected ? 3 : 1)
             }
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: isFocused ? "checkmark.circle.fill" : "checkmark.circle")
+                        .font(.title3)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(6)
+                }
+            }
+    }
+
+    private var borderColor: Color {
+        if isFocused {
+            return .accentColor
+        }
+        if isSelected {
+            return .accentColor.opacity(0.72)
+        }
+        return .primary.opacity(0.08)
     }
 
     @ViewBuilder

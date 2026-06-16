@@ -11,9 +11,14 @@ final class FileBrowserViewModel {
     var files: [BrowserFileItem] = []
     var selectedFolder: BrowserFolderItem?
     var selectedFileID: BrowserFileItem.ID?
+    var selectedFileIDs: Set<BrowserFileItem.ID> = []
     var isShowingFolderPicker = false
+    var isShowingCopyDestinationPicker = false
+    var isShowingClearCatalogConfirmation = false
     var isScanning = false
     var isCreatingThumbnails = false
+    var copyProgress = CopyProgress()
+    var copyFailure: CopyFailure?
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
     var zoomExifInfo: BrowserExifInfo?
@@ -29,9 +34,23 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var zoomTask: Task<Void, Never>?
     @ObservationIgnored private var scanID = UUID()
+    @ObservationIgnored private var selectionAnchorFileID: BrowserFileItem.ID?
+    @ObservationIgnored private var rememberedCatalogs: [URL: RememberedCatalog] = [:]
 
     var selectedFile: BrowserFileItem? {
         files.first { $0.id == selectedFileID }
+    }
+
+    var selectedFiles: [BrowserFileItem] {
+        files.filter { selectedFileIDs.contains($0.id) }
+    }
+
+    var selectedFileCount: Int {
+        selectedFileIDs.count
+    }
+
+    var canCopySelectedFiles: Bool {
+        !selectedFileIDs.isEmpty && !copyProgress.isActive
     }
 
     var isSidebarSelectionEnabled: Bool {
@@ -48,13 +67,32 @@ final class FileBrowserViewModel {
         await MemoryImageCache.shared.apply(settings: settings)
     }
 
+    func loadRememberedCatalogs() async {
+        let catalogs = await RememberedCatalogStore.load()
+        var loadedCatalogs: [URL: RememberedCatalog] = [:]
+        var loadedFolders: [BrowserFolderItem] = []
+
+        for catalog in catalogs {
+            guard let url = RememberedCatalogStore.resolvedURL(for: catalog) else { continue }
+            let standardizedURL = url.standardizedFileURL
+            loadedCatalogs[standardizedURL] = catalog
+            loadedFolders.append(BrowserFolderItem(url: standardizedURL))
+        }
+
+        rememberedCatalogs = loadedCatalogs
+        rootFolders = uniqueFolders(loadedFolders)
+        await saveRememberedCatalogs()
+    }
+
     func addRootFolder(_ url: URL) {
-        guard startSecurityScopedAccess(for: url) else { return }
-        let folder = BrowserFolderItem(url: url)
-        if !rootFolders.contains(where: { $0.url == url }) {
+        let standardizedURL = url.standardizedFileURL
+        guard startSecurityScopedAccess(for: standardizedURL) else { return }
+        let folder = BrowserFolderItem(url: standardizedURL)
+        if !rootFolders.contains(where: { $0.url == standardizedURL }) {
             rootFolders.append(folder)
             rootFolders.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
+        rememberCatalog(at: standardizedURL)
         selectFolder(folder)
     }
 
@@ -91,6 +129,8 @@ final class FileBrowserViewModel {
         scanID = currentScanID
         selectedFolder = folder
         selectedFileID = nil
+        selectedFileIDs = []
+        selectionAnchorFileID = nil
         resetZoomInterfaceState()
         isCreatingThumbnails = false
         scanTask?.cancel()
@@ -106,6 +146,8 @@ final class FileBrowserViewModel {
             folderChildren[folder.id] = loadedFolders
             files = loadedFiles
             selectedFileID = loadedFiles.first?.id
+            selectedFileIDs = Set(loadedFiles.first.map { [$0.id] } ?? [])
+            selectionAnchorFileID = loadedFiles.first?.id
             isScanning = false
 
             guard !loadedFiles.isEmpty else { return }
@@ -134,6 +176,44 @@ final class FileBrowserViewModel {
     }
 
     func selectFile(_ file: BrowserFileItem) {
+        selectOnlyFile(file)
+    }
+
+    func selectOnlyFile(_ file: BrowserFileItem) {
+        selectedFileID = file.id
+        selectedFileIDs = [file.id]
+        selectionAnchorFileID = file.id
+    }
+
+    func toggleFileSelection(_ file: BrowserFileItem) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+            if selectedFileID == file.id {
+                selectedFileID = selectedFiles.first?.id
+            }
+        } else {
+            selectedFileIDs.insert(file.id)
+            selectedFileID = file.id
+            selectionAnchorFileID = file.id
+        }
+
+        if selectedFileIDs.isEmpty {
+            selectedFileID = nil
+            selectionAnchorFileID = nil
+        }
+    }
+
+    func extendFileSelection(to file: BrowserFileItem) {
+        guard let anchorID = selectionAnchorFileID ?? selectedFileID,
+              let anchorIndex = files.firstIndex(where: { $0.id == anchorID }),
+              let targetIndex = files.firstIndex(of: file)
+        else {
+            selectOnlyFile(file)
+            return
+        }
+
+        let bounds = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+        selectedFileIDs = Set(files[bounds].map(\.id))
         selectedFileID = file.id
     }
 
@@ -181,9 +261,61 @@ final class FileBrowserViewModel {
         let nextIndex = currentIndex + delta
         guard files.indices.contains(nextIndex) else { return }
         selectedFileID = files[nextIndex].id
+        selectedFileIDs = [files[nextIndex].id]
+        selectionAnchorFileID = files[nextIndex].id
         if zoomOverlayVisible {
             openZoom(for: files[nextIndex])
         }
+    }
+
+    func copySelectedFiles(to destinationURL: URL) async {
+        let filesToCopy = selectedFiles
+        guard !filesToCopy.isEmpty else { return }
+
+        let destination = destinationURL.standardizedFileURL
+        let didAccessDestination = destination.startAccessingSecurityScopedResource()
+        defer {
+            if didAccessDestination {
+                destination.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        copyProgress = CopyProgress(completedCount: 0, totalCount: filesToCopy.count)
+        copyFailure = nil
+
+        do {
+            for (index, file) in filesToCopy.enumerated() {
+                try Task.checkCancellation()
+                let targetURL = uniqueDestinationURL(for: file.url.lastPathComponent, in: destination)
+                try await Task.detached(priority: .utility) {
+                    try FileManager.default.copyItem(at: file.url, to: targetURL)
+                }.value
+                copyProgress = CopyProgress(completedCount: index + 1, totalCount: filesToCopy.count)
+            }
+        } catch {
+            copyFailure = CopyFailure(message: error.localizedDescription)
+        }
+    }
+
+    func clearRememberedCatalogs() async {
+        scanTask?.cancel()
+        thumbnailTask?.cancel()
+        closeZoom()
+        stopActiveSecurityScopedAccess()
+
+        rootFolders = []
+        folderChildren = [:]
+        expandedFolderIDs = []
+        loadingFolderIDs = []
+        files = []
+        selectedFolder = nil
+        selectedFileID = nil
+        selectedFileIDs = []
+        selectionAnchorFileID = nil
+        rememberedCatalogs = [:]
+        isScanning = false
+        isCreatingThumbnails = false
+        await RememberedCatalogStore.clear()
     }
 
     func stopActiveSecurityScopedAccess() {
@@ -201,6 +333,57 @@ final class FileBrowserViewModel {
             .max { first, second in
                 first.standardizedFileURL.pathComponents.count < second.standardizedFileURL.pathComponents.count
             } ?? folderURL
+    }
+
+    private func rememberCatalog(at url: URL) {
+        guard let catalog = RememberedCatalogStore.catalog(for: url) else { return }
+        rememberedCatalogs[url.standardizedFileURL] = catalog
+        Task {
+            await saveRememberedCatalogs()
+        }
+    }
+
+    private func saveRememberedCatalogs() async {
+        let catalogs = rootFolders.compactMap { rememberedCatalogs[$0.url.standardizedFileURL] }
+        await RememberedCatalogStore.save(catalogs)
+    }
+
+    private func uniqueFolders(_ folders: [BrowserFolderItem]) -> [BrowserFolderItem] {
+        var seen: Set<URL> = []
+        return folders
+            .filter { folder in
+                guard !seen.contains(folder.url) else { return false }
+                seen.insert(folder.url)
+                return true
+            }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private func uniqueDestinationURL(for fileName: String, in destination: URL) -> URL {
+        let proposedURL = destination.appendingPathComponent(fileName)
+        guard FileManager.default.fileExists(atPath: proposedURL.path) else {
+            return proposedURL
+        }
+
+        let sourceURL = URL(fileURLWithPath: fileName)
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let pathExtension = sourceURL.pathExtension
+
+        for copyIndex in 1...10_000 {
+            let suffix = copyIndex == 1 ? " copy" : " copy \(copyIndex)"
+            let duplicateName = pathExtension.isEmpty
+                ? "\(baseName)\(suffix)"
+                : "\(baseName)\(suffix).\(pathExtension)"
+            let duplicateURL = destination.appendingPathComponent(duplicateName)
+            if !FileManager.default.fileExists(atPath: duplicateURL.path) {
+                return duplicateURL
+            }
+        }
+
+        let fallbackName = pathExtension.isEmpty
+            ? "\(baseName) copy \(UUID().uuidString)"
+            : "\(baseName) copy \(UUID().uuidString).\(pathExtension)"
+        return destination.appendingPathComponent(fallbackName)
     }
 
     private func startSecurityScopedAccess(for url: URL) -> Bool {

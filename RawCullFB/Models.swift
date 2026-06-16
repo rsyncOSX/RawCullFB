@@ -31,6 +31,29 @@ struct BrowserFolderItem: Identifiable, Hashable {
     }
 }
 
+struct RememberedCatalog: Codable, Identifiable {
+    var id: String { path }
+
+    let name: String
+    let path: String
+    let lastBrowsedAt: Date
+    let bookmarkData: Data
+}
+
+struct CopyProgress: Equatable {
+    var completedCount = 0
+    var totalCount = 0
+
+    var isActive: Bool {
+        totalCount > 0 && completedCount < totalCount
+    }
+}
+
+struct CopyFailure: Identifiable, Equatable {
+    let id = UUID()
+    let message: String
+}
+
 struct BrowserSettings: Codable {
     nonisolated static let defaultMemoryCacheSizeMB = 768
     nonisolated static let defaultGridCacheSizeMB = 256
