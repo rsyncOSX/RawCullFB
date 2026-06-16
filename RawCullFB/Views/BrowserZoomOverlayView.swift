@@ -145,11 +145,14 @@ struct BrowserZoomOverlayView: View {
             close()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-aA")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-aAeEnNpP")) { press in
             switch press.characters {
             case "+": increaseZoom()
             case "-": decreaseZoom()
             case "a", "A": toggleFocusPoint()
+            case "e", "E": toggleExifData()
+            case "n", "N": viewModel.navigateSelection(by: 1)
+            case "p", "P": viewModel.navigateSelection(by: -1)
             default: break
             }
             return .handled
@@ -206,6 +209,12 @@ struct BrowserZoomOverlayView: View {
         guard viewModel.zoomExifInfo?.focusPoint != nil else { return }
         withAnimation(.easeInOut(duration: 0.2)) {
             viewModel.isZoomFocusPointVisible.toggle()
+        }
+    }
+
+    private func toggleExifData() {
+        withAnimation(.snappy) {
+            viewModel.isZoomMetadataCollapsed.toggle()
         }
     }
 

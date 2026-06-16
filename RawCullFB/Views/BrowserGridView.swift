@@ -3,6 +3,7 @@ import SwiftUI
 
 struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
+    @FocusState private var isFocused: Bool
 
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 3)
@@ -37,7 +38,11 @@ struct BrowserGridView: View {
             }
         }
         .focusable()
+        .focused($isFocused)
         .focusEffectDisabled(true)
+        .onAppear {
+            isFocused = true
+        }
         .onKeyPress(.leftArrow) {
             viewModel.navigateSelection(by: -1)
             return .handled
@@ -48,6 +53,17 @@ struct BrowserGridView: View {
         }
         .onKeyPress(.return) {
             viewModel.openZoom()
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "nNpP")) { press in
+            switch press.characters {
+            case "n", "N":
+                viewModel.navigateSelection(by: 1)
+            case "p", "P":
+                viewModel.navigateSelection(by: -1)
+            default:
+                break
+            }
             return .handled
         }
     }
