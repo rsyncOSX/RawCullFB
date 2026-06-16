@@ -32,7 +32,9 @@ struct BrowserFolderItem: Identifiable, Hashable {
 }
 
 struct RememberedCatalog: Codable, Identifiable {
-    var id: String { path }
+    var id: String {
+        path
+    }
 
     let name: String
     let path: String
@@ -79,16 +81,16 @@ struct BrowserSettings: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        memoryCacheSizeMB = min(
-            try container.decodeIfPresent(Int.self, forKey: .memoryCacheSizeMB) ?? memoryCacheSizeMB,
+        memoryCacheSizeMB = try min(
+            container.decodeIfPresent(Int.self, forKey: .memoryCacheSizeMB) ?? memoryCacheSizeMB,
             Self.defaultMemoryCacheSizeMB,
         )
-        gridCacheSizeMB = min(
-            try container.decodeIfPresent(Int.self, forKey: .gridCacheSizeMB) ?? gridCacheSizeMB,
+        gridCacheSizeMB = try min(
+            container.decodeIfPresent(Int.self, forKey: .gridCacheSizeMB) ?? gridCacheSizeMB,
             Self.defaultGridCacheSizeMB,
         )
-        maxCachedExtractedJPGs = min(
-            try container.decodeIfPresent(Int.self, forKey: .maxCachedExtractedJPGs) ?? maxCachedExtractedJPGs,
+        maxCachedExtractedJPGs = try min(
+            container.decodeIfPresent(Int.self, forKey: .maxCachedExtractedJPGs) ?? maxCachedExtractedJPGs,
             Self.defaultMaxCachedExtractedJPGs,
         )
         thumbnailSizeGrid = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeGrid) ?? thumbnailSizeGrid

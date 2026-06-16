@@ -212,7 +212,7 @@ final class FileBrowserViewModel {
             return
         }
 
-        let bounds = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+        let bounds = min(anchorIndex, targetIndex) ... max(anchorIndex, targetIndex)
         selectedFileIDs = Set(files[bounds].map(\.id))
         selectedFileID = file.id
     }
@@ -369,7 +369,7 @@ final class FileBrowserViewModel {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         let pathExtension = sourceURL.pathExtension
 
-        for copyIndex in 1...10_000 {
+        for copyIndex in 1 ... 10000 {
             let suffix = copyIndex == 1 ? " copy" : " copy \(copyIndex)"
             let duplicateName = pathExtension.isEmpty
                 ? "\(baseName)\(suffix)"

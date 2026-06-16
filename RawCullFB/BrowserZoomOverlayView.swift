@@ -109,10 +109,10 @@ struct BrowserZoomOverlayView: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                        .toggleStyle(.button)
-                        .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
-                        .accessibilityLabel("Focus Point")
-                        .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
+                    .toggleStyle(.button)
+                    .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
+                    .accessibilityLabel("Focus Point")
+                    .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
                 }
                 .buttonStyle(.bordered)
                 .padding(.bottom, 18)
