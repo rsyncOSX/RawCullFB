@@ -2,6 +2,11 @@
 
 RawCullFB is a small macOS SwiftUI file browser for quickly reviewing raw photo folders. It scans a selected folder, shows supported raw files in a thumbnail grid, and opens a zoomable preview using the embedded or sidecar JPEG where available.
 
+## Requirements
+
+- macOS Tahoe or later
+- **Apple Silicon** (M-series) only
+
 ## Features
 
 - Add local folders through the macOS folder picker.
