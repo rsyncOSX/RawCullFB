@@ -17,12 +17,11 @@ import os
 /// We use 'nonisolated(unsafe)' for the NSCache because NSCache is internally thread-safe,
 /// allowing us to access it synchronously without actor hops.
 actor SharedMemoryCache {
-    
     private init() {}
-    
+
     /// Only using the memory pressure warning
     private var fileHandlers: FileHandlers?
-    
+
     nonisolated static let shared = SharedMemoryCache()
 
     // Cache statistics for monitoring (Actor specific, not shared)
@@ -126,7 +125,6 @@ actor SharedMemoryCache {
 
     private var setupTask: Task<Void, Never>?
 
-
     // MARK: - Memory Pressure Monitoring
 
     private func startMemoryPressureMonitoring() {
@@ -183,7 +181,7 @@ actor SharedMemoryCache {
             setCurrentPressureLevel(.warning)
             _pressureWarnings.withLock { $0 += 1 }
             logMemoryPressure("Warning: Memory pressure detected, reducing cache to 60%")
-            
+
             Task {
                 await fileHandlers?.memorypressurewarning(true)
             }
@@ -213,7 +211,6 @@ actor SharedMemoryCache {
         // Logger.process.debugMessageOnly("SharedMemoryCache: \(message)")
     }
 
-   
     nonisolated func getMemoryCacheCurrentCost() -> Int {
         _memCost.withLock { $0 }
     }
@@ -226,8 +223,6 @@ actor SharedMemoryCache {
         _memCost.withLock { $0 = max(0, $0 - cost) }
         _memCount.withLock { $0 = max(0, $0 - 1) }
     }
-
-    
 
     nonisolated func getGridCacheCurrentCost() -> Int {
         _gridCost.withLock { $0 }
@@ -286,10 +281,6 @@ actor SharedMemoryCache {
         _pressureCriticals.withLock { $0 }
     }
 
-    
-   
-
-
     func updateCacheMemory() async {
         cacheMemory += 1
         // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache (hits: \(cacheMemory))")
@@ -346,13 +337,12 @@ private struct EvictedRing {
     }
 }
 
-
 struct CreateFileHandlers {
     func createFileHandlers(
-        memorypressurewarning: @escaping @MainActor @Sendable (Bool) -> Void
+        memorypressurewarning: @escaping @MainActor @Sendable (Bool) -> Void,
     ) -> FileHandlers {
         FileHandlers(
-            memorypressurewarning: memorypressurewarning
+            memorypressurewarning: memorypressurewarning,
         )
     }
 }

@@ -1,13 +1,14 @@
 import Foundation
 import ImageIO
 import RawParserKit
-/*
-enum SupportedFileType: String, CaseIterable {
-    case arw
-    case nef
-    case jpeg, jpg
-}
-*/
+
+/**
+ enum SupportedFileType: String, CaseIterable {
+     case arw
+     case nef
+     case jpeg, jpg
+ }
+ */
 enum OrientationNormalizedImageLoaderOLD {
     nonisolated static func loadCGImage(from url: URL) -> CGImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary

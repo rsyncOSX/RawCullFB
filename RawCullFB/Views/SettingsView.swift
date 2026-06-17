@@ -13,7 +13,6 @@ struct SettingsView: View {
     var body: some View {
         Group {
             TabView {
-                
                 MemoryTab()
                     .tabItem {
                         Label("Memory", systemImage: "rectangle.compress.vertical")

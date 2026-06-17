@@ -31,7 +31,7 @@ struct RawCullFBApp: App {
             SidebarCommands()
             RawCullFBCommands()
         }
-        
+
         Settings {
             SettingsView()
                 .environment(viewModel)
