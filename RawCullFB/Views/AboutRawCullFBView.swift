@@ -63,10 +63,13 @@ struct AboutRawCullFBView: View {
         return switch (version, build) {
         case let (version?, build?):
             "Version \(version) (\(build))"
+
         case let (version?, nil):
             "Version \(version)"
+
         case let (nil, build?):
             "Build \(build)"
+
         default:
             "Version unavailable"
         }

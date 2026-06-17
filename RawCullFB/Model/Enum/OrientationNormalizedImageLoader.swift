@@ -58,11 +58,15 @@ enum OrientationNormalizedImageLoader {
             return nil
         }
         let width = intValue(properties[kCGImagePropertyPixelWidth])
-            ?? nestedIntValue(properties, dictionary: kCGImagePropertyExifDictionary, key: kCGImagePropertyExifPixelXDimension)
-            ?? nestedIntValue(properties, dictionary: kCGImagePropertyTIFFDictionary, key: kCGImagePropertyPixelWidth)
+            ?? nestedIntValue(properties, dictionary: kCGImagePropertyExifDictionary,
+                              key: kCGImagePropertyExifPixelXDimension)
+            ?? nestedIntValue(properties, dictionary: kCGImagePropertyTIFFDictionary,
+                              key: kCGImagePropertyPixelWidth)
         let height = intValue(properties[kCGImagePropertyPixelHeight])
-            ?? nestedIntValue(properties, dictionary: kCGImagePropertyExifDictionary, key: kCGImagePropertyExifPixelYDimension)
-            ?? nestedIntValue(properties, dictionary: kCGImagePropertyTIFFDictionary, key: kCGImagePropertyPixelHeight)
+            ?? nestedIntValue(properties, dictionary: kCGImagePropertyExifDictionary,
+                              key: kCGImagePropertyExifPixelYDimension)
+            ?? nestedIntValue(properties, dictionary: kCGImagePropertyTIFFDictionary,
+                              key: kCGImagePropertyPixelHeight)
 
         guard let width, let height else { return nil }
         return max(width, height)

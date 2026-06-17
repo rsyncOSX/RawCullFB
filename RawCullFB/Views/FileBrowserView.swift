@@ -29,6 +29,7 @@ struct FileBrowserView: View {
             switch purpose {
             case .addRootFolder:
                 viewModel.addRootFolder(url)
+
             case .copyDestination:
                 Task {
                     await viewModel.copySelectedFiles(to: url)

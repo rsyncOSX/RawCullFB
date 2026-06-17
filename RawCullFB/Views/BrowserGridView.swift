@@ -66,8 +66,10 @@ struct BrowserGridView: View {
             switch press.characters {
             case "n", "N":
                 viewModel.navigateSelection(by: 1)
+
             case "p", "P":
                 viewModel.navigateSelection(by: -1)
+
             default:
                 break
             }
