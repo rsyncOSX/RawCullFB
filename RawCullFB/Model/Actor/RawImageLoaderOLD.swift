@@ -2,8 +2,8 @@ import AppKit
 import ImageIO
 import RawParserKit
 
-actor RawImageLoader {
-    static let shared = RawImageLoader()
+actor RawImageLoaderOLD {
+    static let shared = RawImageLoaderOLD()
 
     private var thumbnailTasks: [URL: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
