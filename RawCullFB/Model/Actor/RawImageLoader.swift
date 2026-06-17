@@ -114,14 +114,12 @@ actor RawImageLoader {
 
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
-            if let sidecarImage = await Self.loadCGImage(from: sidecarURL) {
+            if let sidecarImage = await Self.loadOrientationNormalizedImage(from: sidecarURL) {
                 await MemoryImageCache.shared.storeExtractedJPG(sidecarImage, for: url)
                 return sidecarImage
             }
 
-            guard let format = RawFormatRegistry.format(for: url),
-                  let extracted = await format.extractFullJPEG(from: url, fullSize: false)
-            else { return nil }
+            guard let extracted = await Self.extractOrientationNormalizedImage(from: url) else { return nil }
 
             await MemoryImageCache.shared.storeExtractedJPG(extracted, for: url)
             return extracted
@@ -148,15 +146,24 @@ actor RawImageLoader {
         return info
     }
 
-    private nonisolated static func loadCGImage(from url: URL) async -> CGImage? {
+    private nonisolated static func loadOrientationNormalizedImage(from url: URL) async -> CGImage? {
         await Task.detached(priority: .userInitiated) {
-            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else { return nil }
-            let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let image = CGImageSourceCreateImageAtIndex(source, 0, decodeOptions) else { return nil }
-            CGImageSourceRemoveCacheAtIndex(source, 0)
-            return image
+            OrientationNormalizedImageLoader.loadCGImage(from: url)
         }.value
+    }
+
+    private nonisolated static func extractOrientationNormalizedImage(from url: URL) async -> CGImage? {
+        if let sonyPreview = await Task.detached(priority: .userInitiated, operation: {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
+        }).value {
+            return sonyPreview
+        }
+
+        guard let format = RawFormatRegistry.format(for: url),
+              let extracted = await format.extractFullJPEG(from: url, fullSize: false)
+        else { return nil }
+
+        return extracted
     }
 
     private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {
