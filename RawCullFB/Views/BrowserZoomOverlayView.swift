@@ -95,6 +95,12 @@ struct BrowserZoomOverlayView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
+                    
+                    if let cg = viewModel.zoomImage {
+                        Text("\(cg.width) × \(cg.height) px")
+                            .font(.caption2).foregroundStyle(.white.opacity(0.4))
+                    }
+                    
                     Button { decreaseZoom() } label: { Image(systemName: "minus.magnifyingglass") }
                     Button { withAnimation(.spring()) { resetToFit() } } label: { Image(systemName: "1.magnifyingglass") }
                     Button { increaseZoom() } label: { Image(systemName: "plus.magnifyingglass") }
