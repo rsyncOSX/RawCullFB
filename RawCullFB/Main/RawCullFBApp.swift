@@ -31,6 +31,11 @@ struct RawCullFBApp: App {
             SidebarCommands()
             RawCullFBCommands()
         }
+        
+        Settings {
+            SettingsView()
+                .environment(viewModel)
+        }
 
         Window("About RawCullFB", id: "about-window") {
             AboutRawCullFBView()
