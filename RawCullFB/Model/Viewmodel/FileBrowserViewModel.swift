@@ -278,6 +278,29 @@ final class FileBrowserViewModel {
         return fileRatings[key]
     }
 
+    func ratedFileCount(in folder: BrowserFolderItem) -> Int {
+        guard let catalogURL = rootCatalogURL(containing: folder.url) else { return 0 }
+        let ratedFileNames = Set(
+            fileRatings
+                .filter { key, _ in key.catalogURL == catalogURL }
+                .map(\.key.fileName),
+        )
+        guard !ratedFileNames.isEmpty,
+              let children = try? FileManager.default.contentsOfDirectory(
+                  at: folder.url,
+                  includingPropertiesForKeys: [.isRegularFileKey],
+                  options: [.skipsHiddenFiles, .skipsPackageDescendants],
+              )
+        else { return 0 }
+
+        return children.reduce(into: 0) { count, url in
+            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+            if values?.isRegularFile == true, ratedFileNames.contains(url.lastPathComponent) {
+                count += 1
+            }
+        }
+    }
+
     func updateRating(for file: BrowserFileItem, rating: Int) {
         guard let key = ratingKey(for: file) else { return }
         fileRatings[key] = rating

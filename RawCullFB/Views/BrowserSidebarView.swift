@@ -111,8 +111,8 @@ private struct FolderOutlineRow: View {
                 Text(folder.name)
                     .lineLimit(1)
                 Spacer()
-                if folder.supportedFileCount > 0 {
-                    Text("\(folder.supportedFileCount)")
+                if let imageCountText {
+                    Text(imageCountText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -122,6 +122,15 @@ private struct FolderOutlineRow: View {
             Image(systemName: folder.supportedFileCount > 0 ? "folder.fill" : "folder")
                 .foregroundStyle(folder.supportedFileCount > 0 ? .blue : .secondary)
         }
+    }
+
+    private var imageCountText: String? {
+        guard folder.supportedFileCount > 0 else { return nil }
+        let ratedFileCount = viewModel.ratedFileCount(in: folder)
+        if ratedFileCount > 0 {
+            return "\(folder.supportedFileCount) (\(ratedFileCount))"
+        }
+        return "\(folder.supportedFileCount)"
     }
 
     @ViewBuilder
