@@ -508,7 +508,7 @@ struct BrowserRatingBadge: View {
             .frame(width: size, height: size)
             .background(
                 Circle()
-                    .fill(Color(nsColor: .systemGray).opacity(0.78))
+                    .fill(Color(nsColor: .systemGray).opacity(0.78)),
             )
             .shadow(color: .black.opacity(0.55), radius: 3, x: 0, y: 1)
             .accessibilityLabel("Rating \(Self.label(for: rating))")
@@ -554,7 +554,10 @@ struct BrowserRatingBadge: View {
 }
 
 private struct RatingBadgeOption: Identifiable {
-    var id: Int { rating }
+    var id: Int {
+        rating
+    }
+
     let label: String
     let rating: Int
 }
