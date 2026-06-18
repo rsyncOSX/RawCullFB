@@ -1,5 +1,78 @@
 import SwiftUI
 
+enum ZoomOverlayNavigationAxis: Equatable {
+    case vertical
+    case horizontal
+}
+
+nonisolated enum ZoomOverlayKeyAction: Equatable {
+    case navigatePrevious
+    case navigateNext
+    case escape
+    case zoomIn
+    case zoomOut
+    case toggleFocusPoints
+    case rating(Int)
+
+    nonisolated static func resolve(
+        characters: String?,
+        keyCode: UInt16,
+        navigationAxis: ZoomOverlayNavigationAxis,
+    ) -> ZoomOverlayKeyAction? {
+        if let action = action(for: characters) {
+            return action
+        }
+
+        return switch (navigationAxis, keyCode) {
+        case (.horizontal, 123), (.vertical, 126):
+            .navigatePrevious
+
+        case (.horizontal, 124), (.vertical, 125):
+            .navigateNext
+
+        case (_, 53):
+            .escape
+
+        default:
+            nil
+        }
+    }
+
+    private nonisolated static func action(for characters: String?) -> ZoomOverlayKeyAction? {
+        switch characters {
+        case "+":
+            .zoomIn
+
+        case "-":
+            .zoomOut
+
+        case "a", "A":
+            .toggleFocusPoints
+
+        case "x", "X":
+            .rating(-1)
+
+        case "p", "P", "0":
+            .rating(0)
+
+        case "1", "2":
+            .rating(2)
+
+        case "3", "t", "T":
+            .rating(3)
+
+        case "4":
+            .rating(4)
+
+        case "5":
+            .rating(5)
+
+        default:
+            nil
+        }
+    }
+}
+
 struct BrowserZoomOverlayView: View {
     @Bindable var viewModel: FileBrowserViewModel
 
@@ -7,6 +80,8 @@ struct BrowserZoomOverlayView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var lastMetadataOffset: CGSize = .zero
     @FocusState private var isFocused: Bool
+
+    @State private var keyMonitor: Any?
 
     var body: some View {
         ZStack {
@@ -127,36 +202,83 @@ struct BrowserZoomOverlayView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
-        .onAppear {
-            isFocused = true
-            lastScale = viewModel.zoomScale
-            lastOffset = viewModel.zoomOffset
-            lastMetadataOffset = viewModel.zoomMetadataOffset
-        }
         .onKeyPress(.leftArrow) {
-            viewModel.navigateSelection(by: -1)
-            return .handled
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 123,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
         }
         .onKeyPress(.rightArrow) {
-            viewModel.navigateSelection(by: 1)
-            return .handled
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 124,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.upArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 126,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.downArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 125,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
         }
         .onKeyPress(.escape) {
-            close()
+            dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-aAeEnNpP")) { press in
-            switch press.characters {
-            case "+": increaseZoom()
-            case "-": decreaseZoom()
-            case "a", "A": toggleFocusPoint()
-            case "e", "E": toggleExifData()
-            case "n", "N": viewModel.navigateSelection(by: 1)
-            case "p", "P": viewModel.navigateSelection(by: -1)
-            default: break
-            }
-            return .handled
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: press.characters,
+                keyCode: 0,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
         }
+        .onAppear {
+            installKeyMonitor()
+        }
+        .onDisappear {
+            removeKeyMonitor()
+        }
+        /*
+         .onAppear {
+             isFocused = true
+             lastScale = viewModel.zoomScale
+             lastOffset = viewModel.zoomOffset
+             lastMetadataOffset = viewModel.zoomMetadataOffset
+         }
+         .onKeyPress(.leftArrow) {
+             viewModel.navigateSelection(by: -1)
+             return .handled
+         }
+         .onKeyPress(.rightArrow) {
+             viewModel.navigateSelection(by: 1)
+             return .handled
+         }
+         .onKeyPress(.escape) {
+             close()
+             return .handled
+         }
+         .onKeyPress(characters: CharacterSet(charactersIn: "+-aAeEnNpP")) { press in
+             switch press.characters {
+             case "+": increaseZoom()
+             case "-": decreaseZoom()
+             case "a", "A": toggleFocusPoint()
+             case "e", "E": toggleExifData()
+             case "n", "N": viewModel.navigateSelection(by: 1)
+             case "p", "P": viewModel.navigateSelection(by: -1)
+             default: break
+             }
+             return .handled
+         }
+          */
     }
 
     private var zoomPanGesture: some Gesture {
@@ -243,6 +365,78 @@ struct BrowserZoomOverlayView: View {
 
     private func close() {
         viewModel.closeZoom()
+    }
+
+    // ADDED
+
+    private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
+        guard let action else { return .ignored }
+
+        switch action {
+        case .navigatePrevious:
+            viewModel.navigateSelection(by: -1)
+            return .handled
+
+        case .navigateNext:
+            viewModel.navigateSelection(by: 1)
+            return .handled
+
+        case .escape:
+            dismiss()
+            return .handled
+
+        case .zoomIn:
+            increaseZoom()
+            return .handled
+
+        case .zoomOut:
+            decreaseZoom()
+            return .handled
+
+        case .toggleFocusPoints:
+            toggleFocusPoint()
+            return .handled
+
+        case let .rating(rating):
+            return applyRating(rating)
+        }
+    }
+
+    private func applyRating(_: Int) -> KeyPress.Result {
+        guard let selectedFile = viewModel.selectedFile else { return .ignored }
+        // viewModel.updateRating(for: selectedFile, rating: rating)
+        return .handled
+    }
+
+    private func dismiss() {
+        viewModel.closeZoom()
+        resetToFit()
+    }
+
+    private func installKeyMonitor() {
+        removeKeyMonitor()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+
+            return handleKeyEvent(event) == .handled ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
+        handleKeyAction(ZoomOverlayKeyAction.resolve(
+            characters: event.characters,
+            keyCode: event.keyCode,
+            navigationAxis: viewModel.zoomOverlayNavigationAxis,
+        ))
     }
 }
 

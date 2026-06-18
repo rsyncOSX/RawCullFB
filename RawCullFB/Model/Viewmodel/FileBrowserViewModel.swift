@@ -29,6 +29,8 @@ final class FileBrowserViewModel {
     var isZoomFocusPointVisible = false
     var settings = BrowserSettings()
 
+    var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
+
     @ObservationIgnored private var activeSecurityScopedURL: URL?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
