@@ -7,7 +7,7 @@ struct BrowserSidebarView: View {
         List(selection: selectedFolderBinding) {
             Section("Catalogs") {
                 ForEach(viewModel.rootFolders) { folder in
-                    FolderOutlineRow(viewModel: viewModel, folder: folder)
+                    FolderOutlineRow(viewModel: viewModel, folder: folder, isRootCatalog: true)
                 }
             }
         }
@@ -67,22 +67,29 @@ struct BrowserSidebarView: View {
 private struct FolderOutlineRow: View {
     @Bindable var viewModel: FileBrowserViewModel
     let folder: BrowserFolderItem
+    let isRootCatalog: Bool
 
     var body: some View {
         if shouldShowDisclosure {
             DisclosureGroup(isExpanded: expandedBinding) {
                 ForEach(viewModel.children(of: folder)) { child in
-                    FolderOutlineRow(viewModel: viewModel, folder: child)
+                    FolderOutlineRow(viewModel: viewModel, folder: child, isRootCatalog: false)
                 }
             } label: {
                 folderLabel
             }
             .tag(folder.id)
             .selectionDisabled(!viewModel.isSidebarSelectionEnabled)
+            .contextMenu {
+                rootCatalogDeleteButton
+            }
         } else {
             folderLabel
                 .tag(folder.id)
                 .selectionDisabled(!viewModel.isSidebarSelectionEnabled)
+                .contextMenu {
+                    rootCatalogDeleteButton
+                }
         }
     }
 
@@ -114,6 +121,17 @@ private struct FolderOutlineRow: View {
         } icon: {
             Image(systemName: folder.supportedFileCount > 0 ? "folder.fill" : "folder")
                 .foregroundStyle(folder.supportedFileCount > 0 ? .blue : .secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var rootCatalogDeleteButton: some View {
+        if isRootCatalog {
+            Button("Delete Catalog from Sidebar", role: .destructive) {
+                Task {
+                    await viewModel.removeRootCatalog(folder)
+                }
+            }
         }
     }
 }

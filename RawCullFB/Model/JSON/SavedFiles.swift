@@ -75,6 +75,13 @@ struct SavedFiles: Identifiable, Codable {
         self.filerecords = [filerecord]
         burstWinnerOverrides = nil
     }
+
+    init(catalog: URL, dateStart: String?, filerecords: [FileRecord]) {
+        self.catalog = catalog
+        self.dateStart = dateStart
+        self.filerecords = filerecords
+        burstWinnerOverrides = nil
+    }
 }
 
 extension SavedFiles: Hashable, Equatable {

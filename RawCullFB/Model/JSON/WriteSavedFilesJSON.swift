@@ -35,6 +35,14 @@ actor WriteSavedFilesJSON {
         }
     }
 
+    static func clear(from savedFilesURL: URL? = nil) async {
+        if let savedFilesURL {
+            await WriteSavedFilesJSON(savedFilesURL: savedFilesURL).performClear()
+        } else {
+            await shared.performClear()
+        }
+    }
+
     private init(savedFilesURL: URL? = nil) {
         self.savedFilesURL = savedFilesURL
     }
@@ -42,6 +50,13 @@ actor WriteSavedFilesJSON {
     private func performWrite(_ savedFiles: [SavedFiles]) async {
         Logger.process.debugThreadOnly("WriteSavedFilesJSON write")
         await encodeJSONData(savedFiles)
+    }
+
+    private func performClear() async {
+        let fileURL = savePath
+        await Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }.value
     }
 
     private func writeJSONToPersistentStore(jsonData: Data?) async {

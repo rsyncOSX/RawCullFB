@@ -169,28 +169,38 @@ struct BrowserZoomOverlayView: View {
 
                 Spacer()
 
-                HStack(spacing: 12) {
-                    Button { decreaseZoom() } label: { Image(systemName: "minus.magnifyingglass") }
-                    Button { withAnimation(.spring()) { resetToFit() } } label: { Image(systemName: "1.magnifyingglass") }
-                    Button { increaseZoom() } label: { Image(systemName: "plus.magnifyingglass") }
-                    Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
-                        HStack(spacing: 6) {
-                            Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
-                                .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
-                                .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+                VStack(spacing: 14) {
+                    ZoomRatingBadgeRow(
+                        selectedRating: viewModel.rating(for: viewModel.selectedFile),
+                        applyRating: { rating in
+                            guard let selectedFile = viewModel.selectedFile else { return }
+                            viewModel.updateRating(for: selectedFile, rating: rating)
+                        },
+                    )
 
-                            Text("A")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
+                    HStack(spacing: 12) {
+                        Button { decreaseZoom() } label: { Image(systemName: "minus.magnifyingglass") }
+                        Button { withAnimation(.spring()) { resetToFit() } } label: { Image(systemName: "1.magnifyingglass") }
+                        Button { increaseZoom() } label: { Image(systemName: "plus.magnifyingglass") }
+                        Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
+                            HStack(spacing: 6) {
+                                Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
+                                    .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
+                                    .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+
+                                Text("A")
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
+                            }
                         }
+                        .toggleStyle(.button)
+                        .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
+                        .accessibilityLabel("Focus Point")
+                        .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
                     }
-                    .toggleStyle(.button)
-                    .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
-                    .accessibilityLabel("Focus Point")
-                    .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
                 .padding(.bottom, 18)
             }
 
@@ -402,9 +412,9 @@ struct BrowserZoomOverlayView: View {
         }
     }
 
-    private func applyRating(_: Int) -> KeyPress.Result {
+    private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        // viewModel.updateRating(for: selectedFile, rating: rating)
+        viewModel.updateRating(for: selectedFile, rating: rating)
         return .handled
     }
 
@@ -438,6 +448,59 @@ struct BrowserZoomOverlayView: View {
             navigationAxis: viewModel.zoomOverlayNavigationAxis,
         ))
     }
+}
+
+private struct ZoomRatingBadgeRow: View {
+    let selectedRating: Int?
+    let applyRating: (Int) -> Void
+
+    private let badges = [
+        ZoomRatingBadge(label: "X", rating: -1, textColor: .red),
+        ZoomRatingBadge(label: "P", rating: 0, textColor: .blue),
+        ZoomRatingBadge(label: "2", rating: 2, textColor: .yellow),
+        ZoomRatingBadge(label: "3", rating: 3, textColor: .green),
+        ZoomRatingBadge(label: "4", rating: 4, textColor: .cyan),
+        ZoomRatingBadge(label: "5", rating: 5, textColor: .pink)
+    ]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(badges) { badge in
+                Button {
+                    applyRating(badge.rating)
+                } label: {
+                    Text(badge.label)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(badge.textColor)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            Circle()
+                                .fill(Color(nsColor: .systemGray).opacity(0.72))
+                        )
+                        .overlay {
+                            if selectedRating == badge.rating {
+                                Circle()
+                                    .strokeBorder(.white.opacity(0.9), lineWidth: 2)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Rate \(badge.label)")
+                .accessibilityLabel("Rate \(badge.label)")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+    }
+}
+
+private struct ZoomRatingBadge: Identifiable {
+    var id: Int { rating }
+    let label: String
+    let rating: Int
+    let textColor: Color
 }
 
 private struct ZoomMetadataPanel: View {

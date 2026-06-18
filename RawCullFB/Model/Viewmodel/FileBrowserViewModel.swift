@@ -28,6 +28,7 @@ final class FileBrowserViewModel {
     var zoomMetadataOffset: CGSize = .zero
     var isZoomFocusPointVisible = false
     var settings = BrowserSettings()
+    private var fileRatings: [CatalogFileRatingKey: Int] = [:]
 
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
 
@@ -84,6 +85,7 @@ final class FileBrowserViewModel {
         rememberedCatalogs = loadedCatalogs
         rootFolders = uniqueFolders(loadedFolders)
         await saveRememberedCatalogs()
+        loadSavedRatings()
     }
 
     func addRootFolder(_ url: URL) {
@@ -92,7 +94,6 @@ final class FileBrowserViewModel {
         let folder = BrowserFolderItem(url: standardizedURL)
         if !rootFolders.contains(where: { $0.url == standardizedURL }) {
             rootFolders.append(folder)
-            rootFolders.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
         rememberCatalog(at: standardizedURL)
         selectFolder(folder)
@@ -270,6 +271,21 @@ final class FileBrowserViewModel {
         }
     }
 
+    func rating(for file: BrowserFileItem?) -> Int? {
+        guard let file,
+              let key = ratingKey(for: file)
+        else { return nil }
+        return fileRatings[key]
+    }
+
+    func updateRating(for file: BrowserFileItem, rating: Int) {
+        guard let key = ratingKey(for: file) else { return }
+        fileRatings[key] = rating
+        Task {
+            await saveRatings()
+        }
+    }
+
     func copySelectedFiles(to destinationURL: URL) async {
         let filesToCopy = selectedFiles
         guard !filesToCopy.isEmpty else { return }
@@ -315,9 +331,48 @@ final class FileBrowserViewModel {
         selectedFileIDs = []
         selectionAnchorFileID = nil
         rememberedCatalogs = [:]
+        fileRatings = [:]
         isScanning = false
         isCreatingThumbnails = false
         await RememberedCatalogStore.clear()
+        await WriteSavedFilesJSON.clear()
+    }
+
+    func removeRootCatalog(_ folder: BrowserFolderItem) async {
+        let catalogURL = folder.url.standardizedFileURL
+        let removedSelectedFolder = selectedFolder?.url.standardizedFileURL.isEqualOrDescendant(of: catalogURL) == true
+
+        scanTask?.cancel()
+        thumbnailTask?.cancel()
+        if removedSelectedFolder {
+            closeZoom()
+            files = []
+            selectedFolder = nil
+            selectedFileID = nil
+            selectedFileIDs = []
+            selectionAnchorFileID = nil
+            isScanning = false
+            isCreatingThumbnails = false
+        }
+
+        rootFolders.removeAll { $0.url.standardizedFileURL == catalogURL }
+        folderChildren = folderChildren.filter { key, _ in
+            !key.standardizedFileURL.isEqualOrDescendant(of: catalogURL)
+        }
+        expandedFolderIDs = expandedFolderIDs.filter {
+            !$0.standardizedFileURL.isEqualOrDescendant(of: catalogURL)
+        }
+        loadingFolderIDs = loadingFolderIDs.filter {
+            !$0.standardizedFileURL.isEqualOrDescendant(of: catalogURL)
+        }
+        rememberedCatalogs.removeValue(forKey: catalogURL)
+        fileRatings = fileRatings.filter { key, _ in key.catalogURL != catalogURL }
+        if activeSecurityScopedURL == catalogURL {
+            stopActiveSecurityScopedAccess()
+        }
+
+        await saveRememberedCatalogs()
+        await saveRatings()
     }
 
     func stopActiveSecurityScopedAccess() {
@@ -350,6 +405,79 @@ final class FileBrowserViewModel {
         await RememberedCatalogStore.save(catalogs)
     }
 
+    private func loadSavedRatings() {
+        guard !rootFolders.isEmpty,
+              let savedFiles = ReadSavedFilesJSON().readjsonfilesavedfiles()
+        else { return }
+
+        let rootCatalogURLs = Set(rootFolders.map { $0.url.standardizedFileURL })
+        var loadedRatings: [CatalogFileRatingKey: Int] = [:]
+
+        for savedCatalog in savedFiles {
+            guard let catalogURL = savedCatalog.catalog?.standardizedFileURL,
+                  rootCatalogURLs.contains(catalogURL),
+                  let records = savedCatalog.filerecords
+            else { continue }
+
+            for record in records {
+                guard let fileName = record.fileName,
+                      let rating = record.rating
+                else { continue }
+                loadedRatings[CatalogFileRatingKey(catalogURL: catalogURL, fileName: fileName)] = rating
+            }
+        }
+
+        fileRatings = loadedRatings
+    }
+
+    private func saveRatings() async {
+        let savedFiles = rootFolders.compactMap { rootFolder -> SavedFiles? in
+            let catalogURL = rootFolder.url.standardizedFileURL
+            let records = fileRatings
+                .filter { key, _ in key.catalogURL == catalogURL }
+                .sorted { lhs, rhs in lhs.key.fileName.localizedStandardCompare(rhs.key.fileName) == .orderedAscending }
+                .map { key, rating in
+                    FileRecord(
+                        fileName: key.fileName,
+                        dateTagged: nil,
+                        rating: rating,
+                    )
+                }
+
+            guard !records.isEmpty else { return nil }
+            return SavedFiles(
+                catalog: catalogURL,
+                dateStart: nil,
+                filerecords: records,
+            )
+        }
+
+        if savedFiles.isEmpty {
+            await WriteSavedFilesJSON.clear()
+        } else {
+            await WriteSavedFilesJSON.write(savedFiles)
+        }
+    }
+
+    private func ratingKey(for file: BrowserFileItem) -> CatalogFileRatingKey? {
+        guard let catalogURL = rootCatalogURL(containing: file.url) else { return nil }
+        return CatalogFileRatingKey(
+            catalogURL: catalogURL,
+            fileName: file.url.lastPathComponent,
+        )
+    }
+
+    private func rootCatalogURL(containing fileURL: URL) -> URL? {
+        let standardizedFileURL = fileURL.standardizedFileURL
+        return rootFolders
+            .map(\.url)
+            .map(\.standardizedFileURL)
+            .filter { standardizedFileURL.isEqualOrDescendant(of: $0) }
+            .max { first, second in
+                first.pathComponents.count < second.pathComponents.count
+            }
+    }
+
     private func uniqueFolders(_ folders: [BrowserFolderItem]) -> [BrowserFolderItem] {
         var seen: Set<URL> = []
         return folders
@@ -358,7 +486,6 @@ final class FileBrowserViewModel {
                 seen.insert(folder.url)
                 return true
             }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private func uniqueDestinationURL(for fileName: String, in destination: URL) -> URL {
@@ -400,6 +527,11 @@ final class FileBrowserViewModel {
         activeSecurityScopedURL = url
         return true
     }
+}
+
+private struct CatalogFileRatingKey: Hashable {
+    let catalogURL: URL
+    let fileName: String
 }
 
 private extension URL {
