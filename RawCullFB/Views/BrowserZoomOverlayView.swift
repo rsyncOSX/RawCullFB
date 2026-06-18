@@ -187,19 +187,33 @@ struct BrowserZoomOverlayView: View {
                     )
 
                     HStack(spacing: 12) {
-                        Button { decreaseZoom() } label: { Image(systemName: "minus.magnifyingglass") }
-                        Button { withAnimation(.spring()) { resetToFit() } } label: { Image(systemName: "1.magnifyingglass") }
-                        Button { increaseZoom() } label: { Image(systemName: "plus.magnifyingglass") }
+                        Button { decreaseZoom() } label: {
+                            ZoomControlBadge {
+                                Image(systemName: "minus.magnifyingglass")
+                            }
+                        }
+                        Button { withAnimation(.spring()) { resetToFit() } } label: {
+                            ZoomControlBadge {
+                                Image(systemName: "1.magnifyingglass")
+                            }
+                        }
+                        Button { increaseZoom() } label: {
+                            ZoomControlBadge {
+                                Image(systemName: "plus.magnifyingglass")
+                            }
+                        }
                         Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
-                            HStack(spacing: 6) {
-                                Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
-                                    .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
-                                    .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+                            ZoomControlBadge(width: 62) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
+                                        .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
+                                        .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
 
-                                Text("A")
-                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                    .accessibilityHidden(true)
+                                    Text("A")
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityHidden(true)
+                                }
                             }
                         }
                         .toggleStyle(.button)
@@ -207,7 +221,7 @@ struct BrowserZoomOverlayView: View {
                         .accessibilityLabel("Focus Point")
                         .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
                 }
                 .padding(.bottom, 18)
             }
@@ -426,6 +440,10 @@ struct BrowserZoomOverlayView: View {
     }
 }
 
+private enum ZoomBadgeStyle {
+    static let fill = Color(nsColor: .systemGray).opacity(0.78)
+}
+
 private struct ZoomRatingBadgeRow: View {
     let selectedRating: Int?
     let applyRating: (Int) -> Void
@@ -445,7 +463,7 @@ private struct ZoomRatingBadgeRow: View {
                 Button {
                     applyRating(badge.rating)
                 } label: {
-                    BrowserRatingBadge(rating: badge.rating, size: 48)
+                    BrowserRatingBadge(rating: badge.rating, size: 40)
                         .overlay {
                             if selectedRating == badge.rating {
                                 Circle()
@@ -458,8 +476,8 @@ private struct ZoomRatingBadgeRow: View {
                 .accessibilityLabel("Rate \(badge.label)")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
         .background(.ultraThinMaterial, in: Capsule())
     }
 }
@@ -476,7 +494,7 @@ struct BrowserRatingBadge: View {
             .frame(width: size, height: size)
             .background(
                 Circle()
-                    .fill(Color(nsColor: .systemGray).opacity(0.78)),
+                    .fill(ZoomBadgeStyle.fill),
             )
             .shadow(color: .black.opacity(0.55), radius: 3, x: 0, y: 1)
             .accessibilityLabel("Rating \(Self.label(for: rating))")
@@ -518,6 +536,34 @@ struct BrowserRatingBadge: View {
         default:
             .primary
         }
+    }
+}
+
+private struct ZoomControlBadge<Content: View>: View {
+    var width: CGFloat = 48
+    var height: CGFloat = 28
+    let content: Content
+
+    init(
+        width: CGFloat = 48,
+        height: CGFloat = 28,
+        @ViewBuilder content: () -> Content,
+    ) {
+        self.width = width
+        self.height = height
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .font(.system(size: 17, weight: .semibold))
+            .frame(width: width, height: height)
+            .background(
+                RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                    .fill(ZoomBadgeStyle.fill),
+            )
+            .shadow(color: .black.opacity(0.35), radius: 2, x: 0, y: 1)
+            .contentShape(RoundedRectangle(cornerRadius: height / 2, style: .continuous))
     }
 }
 
