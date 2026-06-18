@@ -4,30 +4,46 @@ import SwiftUI
 struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
     @FocusState private var isFocused: Bool
+    @State private var horizontalThumbnailCount = 1
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 3)
-    ]
+    private let thumbnailMinimumWidth: CGFloat = 150
+    private let thumbnailMaximumWidth: CGFloat = 220
+    private let gridSpacing: CGFloat = 3
+    private let gridPadding: CGFloat = 16
+
+    private var columns: [GridItem] {
+        [
+            GridItem(.adaptive(minimum: thumbnailMinimumWidth, maximum: thumbnailMaximumWidth), spacing: gridSpacing)
+        ]
+    }
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 3) {
-                ForEach(viewModel.files) { file in
-                    BrowserThumbnailCell(
-                        file: file,
-                        rating: viewModel.rating(for: file),
-                        isFocused: viewModel.selectedFileID == file.id,
-                        isSelected: viewModel.selectedFileIDs.contains(file.id),
-                    )
-                    .onTapGesture {
-                        select(file)
-                    }
-                    .onTapGesture(count: 2) {
-                        viewModel.openZoom(for: file)
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: gridSpacing) {
+                    ForEach(viewModel.files) { file in
+                        BrowserThumbnailCell(
+                            file: file,
+                            rating: viewModel.rating(for: file),
+                            isFocused: viewModel.selectedFileID == file.id,
+                            isSelected: viewModel.selectedFileIDs.contains(file.id),
+                        )
+                        .onTapGesture {
+                            select(file)
+                        }
+                        .onTapGesture(count: 2) {
+                            viewModel.openZoom(for: file)
+                        }
                     }
                 }
+                .padding(gridPadding)
             }
-            .padding(16)
+            .onAppear {
+                updateHorizontalThumbnailCount(for: geometry.size.width)
+            }
+            .onChange(of: geometry.size.width) { _, width in
+                updateHorizontalThumbnailCount(for: width)
+            }
         }
         .overlay {
             if viewModel.files.isEmpty, !viewModel.isScanning {
@@ -59,6 +75,14 @@ struct BrowserGridView: View {
             viewModel.navigateSelection(by: 1)
             return .handled
         }
+        .onKeyPress(.upArrow) {
+            viewModel.navigateSelection(by: -horizontalThumbnailCount)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            viewModel.navigateSelection(by: horizontalThumbnailCount)
+            return .handled
+        }
         .onKeyPress(.return) {
             viewModel.openZoom()
             return .handled
@@ -87,6 +111,12 @@ struct BrowserGridView: View {
         } else {
             viewModel.selectOnlyFile(file)
         }
+    }
+
+    private func updateHorizontalThumbnailCount(for width: CGFloat) {
+        let availableWidth = max(0, width - (gridPadding * 2))
+        let thumbnailCount = Int((availableWidth + gridSpacing) / (thumbnailMinimumWidth + gridSpacing))
+        horizontalThumbnailCount = max(1, thumbnailCount)
     }
 }
 

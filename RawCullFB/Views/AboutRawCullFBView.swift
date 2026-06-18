@@ -3,7 +3,7 @@ import SwiftUI
 
 struct AboutRawCullFBView: View {
     private let shortcuts = [
-        ShortcutRow(context: "Grid", keys: "N / P", action: "Select next or previous image"),
+        ShortcutRow(context: "Grid", keys: "Arrow keys / N / P", action: "Select next or previous image"),
         ShortcutRow(context: "Grid", keys: "Return", action: "Open selected image in zoom"),
         ShortcutRow(context: "Zoom", keys: "N / P", action: "Show next or previous image"),
         ShortcutRow(context: "Zoom", keys: "E", action: "Show or hide EXIF data"),
