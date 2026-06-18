@@ -463,7 +463,7 @@ private struct ZoomRatingBadgeRow: View {
                 Button {
                     applyRating(badge.rating)
                 } label: {
-                    BrowserRatingBadge(rating: badge.rating, size: 40)
+                    BrowserRatingBadge(rating: badge.rating, size: 25)
                         .overlay {
                             if selectedRating == badge.rating {
                                 Circle()
