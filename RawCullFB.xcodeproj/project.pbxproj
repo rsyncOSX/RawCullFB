@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E90ED2132FE07ABB0034DF74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E90ED2082FE07ABB0034DF74 /* Assets.xcassets */; };
 		E90ED21F2FE07AF50034DF74 /* RawCullFBicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */; };
+		E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */; };
 		FB0000010000000000000001 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000011 /* RawCullCore */; };
 		FB0000010000000000000002 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000012 /* RawParserKit */; };
 /* End PBXBuildFile section */
@@ -33,6 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */,
 				FB0000010000000000000001 /* RawCullCore in Frameworks */,
 				FB0000010000000000000002 /* RawParserKit in Frameworks */,
 			);
@@ -82,6 +84,7 @@
 			packageProductDependencies = (
 				FB0000010000000000000011 /* RawCullCore */,
 				FB0000010000000000000012 /* RawParserKit */,
+				E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */,
 			);
 			productName = RawCullFB;
 			productReference = FB0000010000000000000003 /* RawCullFB.app */;
@@ -114,6 +117,7 @@
 			packageReferences = (
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				FB0000010000000000000010 /* XCRemoteSwiftPackageReference "RawParserKit" */,
+				E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FB0000010000000000000008 /* Products */;
@@ -404,6 +408,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/DecodeEncodeGeneric";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.0;
+			};
+		};
 		FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
@@ -423,6 +435,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
+			productName = DecodeEncodeGeneric;
+		};
 		FB0000010000000000000011 /* RawCullCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */;
