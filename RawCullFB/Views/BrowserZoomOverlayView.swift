@@ -265,38 +265,6 @@ struct BrowserZoomOverlayView: View {
         .onDisappear {
             removeKeyMonitor()
         }
-        /*
-         .onAppear {
-             isFocused = true
-             lastScale = viewModel.zoomScale
-             lastOffset = viewModel.zoomOffset
-             lastMetadataOffset = viewModel.zoomMetadataOffset
-         }
-         .onKeyPress(.leftArrow) {
-             viewModel.navigateSelection(by: -1)
-             return .handled
-         }
-         .onKeyPress(.rightArrow) {
-             viewModel.navigateSelection(by: 1)
-             return .handled
-         }
-         .onKeyPress(.escape) {
-             close()
-             return .handled
-         }
-         .onKeyPress(characters: CharacterSet(charactersIn: "+-aAeEnNpP")) { press in
-             switch press.characters {
-             case "+": increaseZoom()
-             case "-": decreaseZoom()
-             case "a", "A": toggleFocusPoint()
-             case "e", "E": toggleExifData()
-             case "n", "N": viewModel.navigateSelection(by: 1)
-             case "p", "P": viewModel.navigateSelection(by: -1)
-             default: break
-             }
-             return .handled
-         }
-          */
     }
 
     private var zoomPanGesture: some Gesture {
