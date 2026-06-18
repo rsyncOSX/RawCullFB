@@ -15,6 +15,7 @@ struct BrowserGridView: View {
                 ForEach(viewModel.files) { file in
                     BrowserThumbnailCell(
                         file: file,
+                        rating: viewModel.rating(for: file),
                         isFocused: viewModel.selectedFileID == file.id,
                         isSelected: viewModel.selectedFileIDs.contains(file.id),
                     )
@@ -91,6 +92,7 @@ struct BrowserGridView: View {
 
 private struct BrowserThumbnailCell: View {
     let file: BrowserFileItem
+    let rating: Int?
     let isFocused: Bool
     let isSelected: Bool
 
@@ -143,6 +145,12 @@ private struct BrowserThumbnailCell: View {
                         .font(.title3)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Color.accentColor)
+                        .padding(6)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if let rating {
+                    BrowserRatingBadge(rating: rating, size: 30)
                         .padding(6)
                 }
             }

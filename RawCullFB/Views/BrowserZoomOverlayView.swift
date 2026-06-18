@@ -104,6 +104,14 @@ struct BrowserZoomOverlayView: View {
                                 containerSize: geometry.size,
                             )
                         }
+
+                        if let rating = viewModel.rating(for: viewModel.selectedFile) {
+                            ZoomImageRatingBadge(
+                                rating: rating,
+                                imageSize: CGSize(width: image.width, height: image.height),
+                                containerSize: geometry.size,
+                            )
+                        }
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .scaleEffect(viewModel.zoomScale)
@@ -455,12 +463,12 @@ private struct ZoomRatingBadgeRow: View {
     let applyRating: (Int) -> Void
 
     private let badges = [
-        ZoomRatingBadge(label: "X", rating: -1, textColor: .red),
-        ZoomRatingBadge(label: "P", rating: 0, textColor: .blue),
-        ZoomRatingBadge(label: "2", rating: 2, textColor: .yellow),
-        ZoomRatingBadge(label: "3", rating: 3, textColor: .green),
-        ZoomRatingBadge(label: "4", rating: 4, textColor: .cyan),
-        ZoomRatingBadge(label: "5", rating: 5, textColor: .pink)
+        RatingBadgeOption(label: "X", rating: -1),
+        RatingBadgeOption(label: "P", rating: 0),
+        RatingBadgeOption(label: "2", rating: 2),
+        RatingBadgeOption(label: "3", rating: 3),
+        RatingBadgeOption(label: "4", rating: 4),
+        RatingBadgeOption(label: "5", rating: 5)
     ]
 
     var body: some View {
@@ -469,15 +477,7 @@ private struct ZoomRatingBadgeRow: View {
                 Button {
                     applyRating(badge.rating)
                 } label: {
-                    Text(badge.label)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(badge.textColor)
-                        .frame(width: 48, height: 48)
-                        .background(
-                            Circle()
-                                .fill(Color(nsColor: .systemGray).opacity(0.72))
-                        )
+                    BrowserRatingBadge(rating: badge.rating, size: 48)
                         .overlay {
                             if selectedRating == badge.rating {
                                 Circle()
@@ -496,11 +496,83 @@ private struct ZoomRatingBadgeRow: View {
     }
 }
 
-private struct ZoomRatingBadge: Identifiable {
+struct BrowserRatingBadge: View {
+    let rating: Int
+    var size: CGFloat = 32
+
+    var body: some View {
+        Text(Self.label(for: rating))
+            .font(.system(size: size * 0.46, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(Self.textColor(for: rating))
+            .frame(width: size, height: size)
+            .background(
+                Circle()
+                    .fill(Color(nsColor: .systemGray).opacity(0.78))
+            )
+            .shadow(color: .black.opacity(0.55), radius: 3, x: 0, y: 1)
+            .accessibilityLabel("Rating \(Self.label(for: rating))")
+    }
+
+    private static func label(for rating: Int) -> String {
+        switch rating {
+        case -1:
+            "X"
+
+        case 0:
+            "P"
+
+        default:
+            "\(rating)"
+        }
+    }
+
+    private static func textColor(for rating: Int) -> Color {
+        switch rating {
+        case -1:
+            .red
+
+        case 0:
+            .blue
+
+        case 2:
+            .yellow
+
+        case 3:
+            .green
+
+        case 4:
+            .cyan
+
+        case 5:
+            .pink
+
+        default:
+            .primary
+        }
+    }
+}
+
+private struct RatingBadgeOption: Identifiable {
     var id: Int { rating }
     let label: String
     let rating: Int
-    let textColor: Color
+}
+
+private struct ZoomImageRatingBadge: View {
+    let rating: Int
+    let imageSize: CGSize
+    let containerSize: CGSize
+
+    var body: some View {
+        let drawRect = fittedImageRect(imageSize: imageSize, containerSize: containerSize)
+        BrowserRatingBadge(rating: rating, size: 44)
+            .position(
+                x: drawRect.maxX - 30,
+                y: drawRect.maxY - 30,
+            )
+            .frame(width: containerSize.width, height: containerSize.height)
+    }
 }
 
 private struct ZoomMetadataPanel: View {
@@ -622,19 +694,19 @@ private struct FocusPointBracketMarker: Shape {
 
         return path
     }
+}
 
-    private nonisolated func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
-        guard imageSize.width > 0, imageSize.height > 0,
-              containerSize.width > 0, containerSize.height > 0
-        else { return .zero }
+private nonisolated func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+    guard imageSize.width > 0, imageSize.height > 0,
+          containerSize.width > 0, containerSize.height > 0
+    else { return .zero }
 
-        let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
-        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        return CGRect(
-            x: (containerSize.width - size.width) / 2,
-            y: (containerSize.height - size.height) / 2,
-            width: size.width,
-            height: size.height,
-        )
-    }
+    let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+    let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+    return CGRect(
+        x: (containerSize.width - size.width) / 2,
+        y: (containerSize.height - size.height) / 2,
+        width: size.width,
+        height: size.height,
+    )
 }
