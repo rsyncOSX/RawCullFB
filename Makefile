@@ -1,3 +1,4 @@
+# sudo ditto "build/RawCullFB.app" "/Applications/RawCullFB.app"
 APP = RawCullFB
 BUNDLE_ID = no.blogspot.$(APP)
 VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCullFB.xcodeproj/project.pbxproj | awk -F' = ' '{print $$2}' | tr -d ';')
