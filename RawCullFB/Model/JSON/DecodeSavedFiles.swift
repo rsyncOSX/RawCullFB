@@ -12,7 +12,7 @@ struct DecodeSavedFiles: Codable {
     let catalog: URL?
     let dateStart: String?
     var filerecords: [DecodeFileRecord]?
-   
+
     enum CodingKeys: String, CodingKey {
         case catalog
         case dateStart
@@ -31,7 +31,7 @@ struct DecodeFileRecord: Codable {
     var fileName: String?
     var dateTagged: String?
     var rating: Int?
-    
+
     enum CodingKeys: String, CodingKey {
         case fileName
         case dateTagged
