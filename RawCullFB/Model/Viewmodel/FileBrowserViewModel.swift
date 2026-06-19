@@ -168,7 +168,7 @@ final class FileBrowserViewModel {
             async let discoveredFiles = RawImageLoader.shared.discoverSupportedFiles(at: folder.url)
             let (loadedFolders, loadedFiles) = await (folders, discoveredFiles)
             guard !Task.isCancelled, currentScanID == scanID else { return }
-            folderChildren[folder.id] = loadedFolders
+            setLoadedChildren(loadedFolders, for: folder)
             files = loadedFiles
             selectedFileID = loadedFiles.first?.id
             selectedFileIDs = Set(loadedFiles.first.map { [$0.id] } ?? [])
@@ -196,14 +196,22 @@ final class FileBrowserViewModel {
 
     private func loadChildren(for folders: [BrowserFolderItem]) async {
         for folder in folders where folderChildren[folder.id] == nil && !loadingFolderIDs.contains(folder.id) {
+            guard startSecurityScopedAccess(for: securityScopedURL(for: folder.url)) else { continue }
             loadingFolderIDs.insert(folder.id)
             let loadedFolders = await RawImageLoader.shared.discoverFolders(at: folder.url)
             guard !Task.isCancelled else {
                 loadingFolderIDs.remove(folder.id)
                 return
             }
-            folderChildren[folder.id] = loadedFolders
+            setLoadedChildren(loadedFolders, for: folder)
             loadingFolderIDs.remove(folder.id)
+        }
+    }
+
+    private func setLoadedChildren(_ children: [BrowserFolderItem], for folder: BrowserFolderItem) {
+        folderChildren[folder.id] = children
+        if rootFolders.contains(where: { $0.id == folder.id }), !children.isEmpty {
+            expandedFolderIDs.insert(folder.id)
         }
     }
 
