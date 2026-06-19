@@ -19,6 +19,8 @@ final class FileBrowserViewModel {
     var isCreatingThumbnails = false
     var copyProgress = CopyProgress()
     var copyFailure: CopyFailure?
+    var deleteProgress = CopyProgress()
+    var deleteFailure: CopyFailure?
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
     var zoomExifInfo: BrowserExifInfo?
@@ -54,6 +56,22 @@ final class FileBrowserViewModel {
 
     var canCopySelectedFiles: Bool {
         !selectedFileIDs.isEmpty && !copyProgress.isActive
+    }
+
+    var rejectedFileCount: Int {
+        ratedFiles(matching: .rejected).count
+    }
+
+    var positiveRatedFileCount: Int {
+        ratedFiles(matching: .positive).count
+    }
+
+    var canDeleteRejectedFiles: Bool {
+        rejectedFileCount > 0 && !copyProgress.isActive && !deleteProgress.isActive
+    }
+
+    var canCopyRatedFiles: Bool {
+        positiveRatedFileCount > 0 && !copyProgress.isActive && !deleteProgress.isActive
     }
 
     var isSidebarSelectionEnabled: Bool {
@@ -310,31 +328,45 @@ final class FileBrowserViewModel {
     }
 
     func copySelectedFiles(to destinationURL: URL) async {
-        let filesToCopy = selectedFiles
-        guard !filesToCopy.isEmpty else { return }
+        await copyFiles(selectedFiles, to: destinationURL)
+    }
 
-        let destination = destinationURL.standardizedFileURL
-        let didAccessDestination = destination.startAccessingSecurityScopedResource()
-        defer {
-            if didAccessDestination {
-                destination.stopAccessingSecurityScopedResource()
-            }
-        }
+    func copyRatedFiles(to destinationURL: URL, filter: RatedCopyFilter) async {
+        await copyFiles(ratedFiles(matching: filter), to: destinationURL)
+    }
 
-        copyProgress = CopyProgress(completedCount: 0, totalCount: filesToCopy.count)
-        copyFailure = nil
+    func deleteRejectedFiles() async {
+        guard let selectedFolder else { return }
+        let filesToDelete = ratedFiles(matching: .rejected)
+        guard !filesToDelete.isEmpty else { return }
+        guard startSecurityScopedAccess(for: securityScopedURL(for: selectedFolder.url)) else { return }
+
+        deleteProgress = CopyProgress(completedCount: 0, totalCount: filesToDelete.count)
+        deleteFailure = nil
 
         do {
-            for (index, file) in filesToCopy.enumerated() {
+            for (index, file) in filesToDelete.enumerated() {
                 try Task.checkCancellation()
-                let targetURL = uniqueDestinationURL(for: file.url.lastPathComponent, in: destination)
                 try await Task.detached(priority: .utility) {
-                    try FileManager.default.copyItem(at: file.url, to: targetURL)
+                    try FileManager.default.trashItem(at: file.url, resultingItemURL: nil)
                 }.value
-                copyProgress = CopyProgress(completedCount: index + 1, totalCount: filesToCopy.count)
+                deleteProgress = CopyProgress(completedCount: index + 1, totalCount: filesToDelete.count)
             }
+
+            let deletedIDs = Set(filesToDelete.map(\.id))
+            let deletedRatingKeys = Set(filesToDelete.compactMap { ratingKey(for: $0) })
+            files.removeAll { deletedIDs.contains($0.id) }
+            selectedFileIDs.subtract(deletedIDs)
+            if selectedFileID.map(deletedIDs.contains) == true {
+                selectedFileID = files.first?.id
+            }
+            if selectionAnchorFileID.map(deletedIDs.contains) == true {
+                selectionAnchorFileID = selectedFileID
+            }
+            fileRatings = fileRatings.filter { key, _ in !deletedRatingKeys.contains(key) }
+            await saveRatings()
         } catch {
-            copyFailure = CopyFailure(message: error.localizedDescription)
+            deleteFailure = CopyFailure(message: error.localizedDescription)
         }
     }
 
@@ -482,6 +514,41 @@ final class FileBrowserViewModel {
         }
     }
 
+    private func copyFiles(_ filesToCopy: [BrowserFileItem], to destinationURL: URL) async {
+        guard !filesToCopy.isEmpty else { return }
+
+        let destination = destinationURL.standardizedFileURL
+        let didAccessDestination = destination.startAccessingSecurityScopedResource()
+        defer {
+            if didAccessDestination {
+                destination.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        copyProgress = CopyProgress(completedCount: 0, totalCount: filesToCopy.count)
+        copyFailure = nil
+
+        do {
+            for (index, file) in filesToCopy.enumerated() {
+                try Task.checkCancellation()
+                let targetURL = uniqueDestinationURL(for: file.url.lastPathComponent, in: destination)
+                try await Task.detached(priority: .utility) {
+                    try FileManager.default.copyItem(at: file.url, to: targetURL)
+                }.value
+                copyProgress = CopyProgress(completedCount: index + 1, totalCount: filesToCopy.count)
+            }
+        } catch {
+            copyFailure = CopyFailure(message: error.localizedDescription)
+        }
+    }
+
+    private func ratedFiles(matching filter: RatedCopyFilter) -> [BrowserFileItem] {
+        files.filter { file in
+            guard let rating = rating(for: file) else { return false }
+            return filter.includes(rating)
+        }
+    }
+
     private func ratingKey(for file: BrowserFileItem) -> CatalogFileRatingKey? {
         guard let catalogURL = rootCatalogURL(containing: file.url) else { return nil }
         return CatalogFileRatingKey(
@@ -549,6 +616,51 @@ final class FileBrowserViewModel {
         guard url.startAccessingSecurityScopedResource() else { return false }
         activeSecurityScopedURL = url
         return true
+    }
+}
+
+enum RatedCopyFilter: Hashable, Identifiable {
+    case positive
+    case rating(Int)
+    case rejected
+
+    var id: String {
+        switch self {
+        case .positive:
+            "positive"
+
+        case let .rating(rating):
+            "rating-\(rating)"
+
+        case .rejected:
+            "rejected"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .positive:
+            "Rated 2-5"
+
+        case let .rating(rating):
+            "Rated \(rating)"
+
+        case .rejected:
+            "Rejected"
+        }
+    }
+
+    func includes(_ rating: Int) -> Bool {
+        switch self {
+        case .positive:
+            (2 ... 5).contains(rating)
+
+        case let .rating(targetRating):
+            rating == targetRating
+
+        case .rejected:
+            rating == -1
+        }
     }
 }
 

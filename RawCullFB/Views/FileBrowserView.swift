@@ -4,6 +4,7 @@ struct FileBrowserView: View {
     @Bindable var viewModel: FileBrowserViewModel
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State private var folderPickerPurpose: FolderPickerPurpose?
+    @State private var isShowingDeleteRejectedConfirmation = false
 
     var body: some View {
         ZStack {
@@ -30,9 +31,9 @@ struct FileBrowserView: View {
             case .addRootFolder:
                 viewModel.addRootFolder(url)
 
-            case .copyDestination:
+            case let .copyRated(filter):
                 Task {
-                    await viewModel.copySelectedFiles(to: url)
+                    await viewModel.copyRatedFiles(to: url, filter: filter)
                 }
             }
         }
@@ -42,16 +43,36 @@ struct FileBrowserView: View {
             }
         }
         .onChange(of: viewModel.isShowingCopyDestinationPicker) { _, isShowing in
-            if isShowing {
-                folderPickerPurpose = .copyDestination
+            if isShowing, folderPickerPurpose == nil {
+                folderPickerPurpose = .copyRated(.positive)
             }
+        }
+        .confirmationDialog(
+            "Delete rejected images?",
+            isPresented: $isShowingDeleteRejectedConfirmation,
+        ) {
+            Button("Move Rejected Images to Trash", role: .destructive) {
+                Task {
+                    await viewModel.deleteRejectedFiles()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This moves \(viewModel.rejectedFileCount) rejected image\(viewModel.rejectedFileCount == 1 ? "" : "s") from the current folder to the Trash.")
         }
         .alert("Copy Failed", isPresented: copyFailureBinding) {
             Button("OK") {
                 viewModel.copyFailure = nil
             }
         } message: {
-            Text(viewModel.copyFailure?.message ?? "The selected files could not be copied.")
+            Text(viewModel.copyFailure?.message ?? "The rated files could not be copied.")
+        }
+        .alert("Delete Failed", isPresented: deleteFailureBinding) {
+            Button("OK") {
+                viewModel.deleteFailure = nil
+            }
+        } message: {
+            Text(viewModel.deleteFailure?.message ?? "The rejected files could not be moved to the Trash.")
         }
     }
 
@@ -68,14 +89,29 @@ struct FileBrowserView: View {
         }
 
         ToolbarItemGroup {
-            Button {
-                folderPickerPurpose = .copyDestination
-                viewModel.isShowingCopyDestinationPicker = true
+            Button(role: .destructive) {
+                isShowingDeleteRejectedConfirmation = true
             } label: {
-                Label("Copy Selected Files", systemImage: "doc.on.doc")
+                Label("Delete Rejected Images", systemImage: "trash")
             }
-            .disabled(!viewModel.canCopySelectedFiles)
-            .help(copyButtonHelp)
+            .disabled(!viewModel.canDeleteRejectedFiles)
+            .help(deleteRejectedButtonHelp)
+
+            Menu {
+                Button("Copy Rated 2-5") {
+                    showCopyDestinationPicker(for: .positive)
+                }
+                Divider()
+                ForEach([2, 3, 4, 5], id: \.self) { rating in
+                    Button("Copy Rated \(rating)") {
+                        showCopyDestinationPicker(for: .rating(rating))
+                    }
+                }
+            } label: {
+                Label("Copy Rated Images", systemImage: "square.and.arrow.down")
+            }
+            .disabled(!viewModel.canCopyRatedFiles)
+            .help(copyRatedButtonHelp)
 
             if viewModel.isScanning {
                 ProgressView()
@@ -89,6 +125,10 @@ struct FileBrowserView: View {
                 ProgressView()
                     .controlSize(.small)
                     .help("Copying \(viewModel.copyProgress.completedCount) of \(viewModel.copyProgress.totalCount) files")
+            } else if viewModel.deleteProgress.isActive {
+                ProgressView()
+                    .controlSize(.small)
+                    .help("Deleting \(viewModel.deleteProgress.completedCount) of \(viewModel.deleteProgress.totalCount) files")
             }
         }
     }
@@ -104,11 +144,23 @@ struct FileBrowserView: View {
         }
     }
 
-    private var copyButtonHelp: String {
-        if viewModel.selectedFileCount == 0 {
-            return "Select files to copy"
+    private func showCopyDestinationPicker(for filter: RatedCopyFilter) {
+        folderPickerPurpose = .copyRated(filter)
+        viewModel.isShowingCopyDestinationPicker = true
+    }
+
+    private var deleteRejectedButtonHelp: String {
+        if viewModel.rejectedFileCount == 0 {
+            return "No rejected images in the current folder"
         }
-        return "Copy \(viewModel.selectedFileCount) selected file\(viewModel.selectedFileCount == 1 ? "" : "s") to a folder"
+        return "Move \(viewModel.rejectedFileCount) rejected image\(viewModel.rejectedFileCount == 1 ? "" : "s") to the Trash"
+    }
+
+    private var copyRatedButtonHelp: String {
+        if viewModel.positiveRatedFileCount == 0 {
+            return "No rated 2-5 images in the current folder"
+        }
+        return "Copy \(viewModel.positiveRatedFileCount) rated image\(viewModel.positiveRatedFileCount == 1 ? "" : "s") to a folder"
     }
 
     private var copyFailureBinding: Binding<Bool> {
@@ -120,9 +172,19 @@ struct FileBrowserView: View {
             }
         }
     }
+
+    private var deleteFailureBinding: Binding<Bool> {
+        Binding {
+            viewModel.deleteFailure != nil
+        } set: { isPresented in
+            if !isPresented {
+                viewModel.deleteFailure = nil
+            }
+        }
+    }
 }
 
-private enum FolderPickerPurpose {
+private enum FolderPickerPurpose: Equatable {
     case addRootFolder
-    case copyDestination
+    case copyRated(RatedCopyFilter)
 }
