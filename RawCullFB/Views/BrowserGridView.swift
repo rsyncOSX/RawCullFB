@@ -87,7 +87,11 @@ struct BrowserGridView: View {
             viewModel.openZoom()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "nNpP")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "nNxXpP012345tT")) { press in
+            if let rating = BrowserRatingShortcut.rating(for: press.characters) {
+                return viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
+            }
+
             switch press.characters {
             case "n", "N":
                 viewModel.navigateSelection(by: 1)

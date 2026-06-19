@@ -49,26 +49,8 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
         case "a", "A":
             .toggleFocusPoints
 
-        case "x", "X":
-            .rating(-1)
-
-        case "p", "P", "0":
-            .rating(0)
-
-        case "1", "2":
-            .rating(2)
-
-        case "3", "t", "T":
-            .rating(3)
-
-        case "4":
-            .rating(4)
-
-        case "5":
-            .rating(5)
-
         default:
-            nil
+            BrowserRatingShortcut.rating(for: characters).map(ZoomOverlayKeyAction.rating)
         }
     }
 }
@@ -181,8 +163,7 @@ struct BrowserZoomOverlayView: View {
                     ZoomRatingBadgeRow(
                         selectedRating: viewModel.rating(for: viewModel.selectedFile),
                         applyRating: { rating in
-                            guard let selectedFile = viewModel.selectedFile else { return }
-                            viewModel.updateRating(for: selectedFile, rating: rating)
+                            _ = viewModel.updateSelectedFilesRatingAndAdvance(rating)
                         },
                     )
 
@@ -403,9 +384,7 @@ struct BrowserZoomOverlayView: View {
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
-        guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        viewModel.updateRating(for: selectedFile, rating: rating)
-        return .handled
+        viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
     }
 
     private func dismiss() {

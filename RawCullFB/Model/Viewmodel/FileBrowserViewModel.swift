@@ -320,11 +320,30 @@ final class FileBrowserViewModel {
     }
 
     func updateRating(for file: BrowserFileItem, rating: Int) {
-        guard let key = ratingKey(for: file) else { return }
-        fileRatings[key] = rating
+        setRating(rating, for: file)
         Task {
             await saveRatings()
         }
+    }
+
+    func updateSelectedFilesRatingAndAdvance(_ rating: Int) -> Bool {
+        let filesToRate = selectedFiles.isEmpty ? selectedFile.map { [$0] } ?? [] : selectedFiles
+        guard !filesToRate.isEmpty else { return false }
+
+        for file in filesToRate {
+            setRating(rating, for: file)
+        }
+
+        Task {
+            await saveRatings()
+        }
+        navigateSelection(by: 1)
+        return true
+    }
+
+    private func setRating(_ rating: Int, for file: BrowserFileItem) {
+        guard let key = ratingKey(for: file) else { return }
+        fileRatings[key] = rating
     }
 
     func copySelectedFiles(to destinationURL: URL) async {
