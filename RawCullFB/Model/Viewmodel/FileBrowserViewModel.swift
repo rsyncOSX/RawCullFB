@@ -104,6 +104,7 @@ final class FileBrowserViewModel {
         rootFolders = uniqueFolders(loadedFolders)
         await saveRememberedCatalogs()
         loadSavedRatings()
+        await loadChildren(for: rootFolders)
     }
 
     func addRootFolder(_ url: URL) {
@@ -112,6 +113,9 @@ final class FileBrowserViewModel {
         let folder = BrowserFolderItem(url: standardizedURL)
         if !rootFolders.contains(where: { $0.url == standardizedURL }) {
             rootFolders.append(folder)
+            Task {
+                await loadChildren(for: [folder])
+            }
         }
         rememberCatalog(at: standardizedURL)
         selectFolder(folder)
@@ -185,12 +189,19 @@ final class FileBrowserViewModel {
     }
 
     private func loadChildrenIfNeeded(for folder: BrowserFolderItem) {
-        guard folderChildren[folder.id] == nil, !loadingFolderIDs.contains(folder.id) else { return }
-
-        loadingFolderIDs.insert(folder.id)
         Task {
+            await loadChildren(for: [folder])
+        }
+    }
+
+    private func loadChildren(for folders: [BrowserFolderItem]) async {
+        for folder in folders where folderChildren[folder.id] == nil && !loadingFolderIDs.contains(folder.id) {
+            loadingFolderIDs.insert(folder.id)
             let loadedFolders = await RawImageLoader.shared.discoverFolders(at: folder.url)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                loadingFolderIDs.remove(folder.id)
+                return
+            }
             folderChildren[folder.id] = loadedFolders
             loadingFolderIDs.remove(folder.id)
         }

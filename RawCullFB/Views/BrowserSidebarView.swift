@@ -108,7 +108,7 @@ private struct FolderOutlineRow: View {
     private var folderLabel: some View {
         Label {
             HStack {
-                Text(folder.name)
+                Text(displayName)
                     .lineLimit(1)
                 Spacer()
                 if let imageCountText {
@@ -122,6 +122,11 @@ private struct FolderOutlineRow: View {
             Image(systemName: folder.supportedFileCount > 0 ? "folder.fill" : "folder")
                 .foregroundStyle(folder.supportedFileCount > 0 ? .blue : .secondary)
         }
+    }
+
+    private var displayName: String {
+        guard isRootCatalog, !viewModel.children(of: folder).isEmpty else { return folder.name }
+        return "> \(folder.name)"
     }
 
     private var imageCountText: String? {
