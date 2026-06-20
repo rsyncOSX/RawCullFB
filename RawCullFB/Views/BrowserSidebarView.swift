@@ -126,7 +126,7 @@ private struct FolderOutlineRow: View {
 
     private var displayName: String {
         guard isRootCatalog, !viewModel.children(of: folder).isEmpty else { return folder.name }
-        return "> \(folder.name)"
+        return folder.name
     }
 
     private var imageCountText: String? {
