@@ -67,6 +67,7 @@ struct BrowserSettings: Codable {
     var thumbnailSizeGrid = 200
     var thumbnailSizePreview = 1616
     var thumbnailSizeFullSize = 8700
+    var enableRatingPins = true
 
     enum CodingKeys: String, CodingKey {
         case memoryCacheSizeMB
@@ -75,6 +76,7 @@ struct BrowserSettings: Codable {
         case thumbnailSizeGrid
         case thumbnailSizePreview
         case thumbnailSizeFullSize
+        case enableRatingPins
     }
 
     init() {}
@@ -96,6 +98,7 @@ struct BrowserSettings: Codable {
         thumbnailSizeGrid = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeGrid) ?? thumbnailSizeGrid
         thumbnailSizePreview = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizePreview) ?? thumbnailSizePreview
         thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
+        enableRatingPins = try container.decodeIfPresent(Bool.self, forKey: .enableRatingPins) ?? enableRatingPins
     }
 }
 

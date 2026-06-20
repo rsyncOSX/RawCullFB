@@ -17,6 +17,23 @@ enum BrowserSettingsStore {
         }
     }
 
+    static func save(_ settings: BrowserSettings) async {
+        let url = settingsURL
+
+        do {
+            let data = try JSONEncoder().encode(settings)
+            try await Task.detached(priority: .utility) {
+                try FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(),
+                    withIntermediateDirectories: true,
+                )
+                try data.write(to: url, options: .atomic)
+            }.value
+        } catch {
+            return
+        }
+    }
+
     private static var settingsURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport

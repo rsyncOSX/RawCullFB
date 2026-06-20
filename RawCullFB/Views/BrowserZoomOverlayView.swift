@@ -87,7 +87,8 @@ struct BrowserZoomOverlayView: View {
                             )
                         }
 
-                        if let rating = viewModel.rating(for: viewModel.selectedFile) {
+                        if viewModel.settings.enableRatingPins,
+                           let rating = viewModel.rating(for: viewModel.selectedFile) {
                             ZoomImageRatingBadge(
                                 rating: rating,
                                 imageSize: CGSize(width: image.width, height: image.height),
@@ -159,51 +160,55 @@ struct BrowserZoomOverlayView: View {
 
                 Spacer()
 
-                VStack(spacing: 14) {
-                    ZoomRatingBadgeRow(
-                        selectedRating: viewModel.rating(for: viewModel.selectedFile),
-                        applyRating: { rating in
-                            _ = viewModel.updateSelectedFilesRatingAndAdvance(rating)
-                        },
-                    )
-
-                    HStack(spacing: 12) {
-                        Button { decreaseZoom() } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "minus.magnifyingglass")
-                            }
+                HStack(spacing: 12) {
+                    Button { decreaseZoom() } label: {
+                        ZoomControlBadge {
+                            Image(systemName: "minus.magnifyingglass")
                         }
-                        Button { withAnimation(.spring()) { resetToFit() } } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "1.magnifyingglass")
-                            }
-                        }
-                        Button { increaseZoom() } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "plus.magnifyingglass")
-                            }
-                        }
-                        Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
-                            ZoomControlBadge(width: 62) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
-                                        .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
-                                        .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
-
-                                    Text("A")
-                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityHidden(true)
-                                }
-                            }
-                        }
-                        .toggleStyle(.button)
-                        .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
-                        .accessibilityLabel("Focus Point")
-                        .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
                     }
-                    .buttonStyle(.plain)
+                    Button { withAnimation(.spring()) { resetToFit() } } label: {
+                        ZoomControlBadge {
+                            Image(systemName: "1.magnifyingglass")
+                        }
+                    }
+                    Button { increaseZoom() } label: {
+                        ZoomControlBadge {
+                            Image(systemName: "plus.magnifyingglass")
+                        }
+                    }
+                    Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
+                        ZoomControlBadge(width: 62) {
+                            HStack(spacing: 6) {
+                                Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
+                                    .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
+                                    .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+
+                                Text("A")
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                    }
+                    .toggleStyle(.button)
+                    .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
+                    .accessibilityLabel("Focus Point")
+                    .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
+
+                    Spacer(minLength: 24)
+
+                    if viewModel.settings.enableRatingPins {
+                        ZoomRatingBadgeRow(
+                            selectedRating: viewModel.rating(for: viewModel.selectedFile),
+                            applyRating: { rating in
+                                _ = viewModel.updateSelectedFilesRatingAndAdvance(rating)
+                            },
+                        )
+                    }
                 }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 18)
                 .padding(.bottom, 18)
             }
 
@@ -384,7 +389,8 @@ struct BrowserZoomOverlayView: View {
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
-        viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
+        guard viewModel.settings.enableRatingPins else { return .ignored }
+        return viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
     }
 
     private func dismiss() {

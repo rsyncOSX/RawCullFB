@@ -24,7 +24,7 @@ struct BrowserGridView: View {
                     ForEach(viewModel.files) { file in
                         BrowserThumbnailCell(
                             file: file,
-                            rating: viewModel.rating(for: file),
+                            rating: viewModel.settings.enableRatingPins ? viewModel.rating(for: file) : nil,
                             isFocused: viewModel.selectedFileID == file.id,
                             isSelected: viewModel.selectedFileIDs.contains(file.id),
                         )
@@ -88,7 +88,8 @@ struct BrowserGridView: View {
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "nNxXpP012345tT")) { press in
-            if let rating = BrowserRatingShortcut.rating(for: press.characters) {
+            if viewModel.settings.enableRatingPins,
+               let rating = BrowserRatingShortcut.rating(for: press.characters) {
                 return viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
             }
 

@@ -88,6 +88,15 @@ final class FileBrowserViewModel {
         await MemoryImageCache.shared.apply(settings: settings)
     }
 
+    func setRatingPinsEnabled(_ isEnabled: Bool) {
+        guard settings.enableRatingPins != isEnabled else { return }
+        settings.enableRatingPins = isEnabled
+        let updatedSettings = settings
+        Task {
+            await BrowserSettingsStore.save(updatedSettings)
+        }
+    }
+
     func loadRememberedCatalogs() async {
         let catalogs = await RememberedCatalogStore.load()
         var loadedCatalogs: [URL: RememberedCatalog] = [:]
@@ -339,6 +348,7 @@ final class FileBrowserViewModel {
     }
 
     func updateRating(for file: BrowserFileItem, rating: Int) {
+        guard settings.enableRatingPins else { return }
         setRating(rating, for: file)
         Task {
             await saveRatings()
@@ -346,6 +356,7 @@ final class FileBrowserViewModel {
     }
 
     func updateSelectedFilesRatingAndAdvance(_ rating: Int) -> Bool {
+        guard settings.enableRatingPins else { return false }
         let filesToRate = selectedFiles.isEmpty ? selectedFile.map { [$0] } ?? [] : selectedFiles
         guard !filesToRate.isEmpty else { return false }
 
