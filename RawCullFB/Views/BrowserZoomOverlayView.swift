@@ -192,46 +192,8 @@ struct BrowserZoomOverlayView: View {
 
                 Spacer()
 
-                ZStack {
-                    HStack(spacing: 12) {
-                        Button { decreaseZoom() } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "minus.magnifyingglass")
-                            }
-                        }
-                        Button { withAnimation(.spring()) { resetToFit() } } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "1.magnifyingglass")
-                            }
-                        }
-                        Button { increaseZoom() } label: {
-                            ZoomControlBadge {
-                                Image(systemName: "plus.magnifyingglass")
-                            }
-                        }
-                        Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
-                            ZoomControlBadge(width: 62) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
-                                        .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
-                                        .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
-
-                                    Text("A")
-                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityHidden(true)
-                                }
-                            }
-                        }
-                        .toggleStyle(.button)
-                        .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
-                        .accessibilityLabel("Focus Point")
-                        .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
-
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
+                HStack(spacing: 48) {
+                    zoomControlRow
                     if viewModel.settings.enableRatingPins {
                         ZoomRatingBadgeRow(
                             selectedRating: viewModel.rating(for: viewModel.selectedFile),
@@ -242,7 +204,7 @@ struct BrowserZoomOverlayView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
             }
@@ -300,6 +262,44 @@ struct BrowserZoomOverlayView: View {
         }
         .onDisappear {
             removeKeyMonitor()
+        }
+    }
+
+    private var zoomControlRow: some View {
+        HStack(spacing: 12) {
+            Button { decreaseZoom() } label: {
+                ZoomControlBadge {
+                    Image(systemName: "minus.magnifyingglass")
+                }
+            }
+            Button { withAnimation(.spring()) { resetToFit() } } label: {
+                ZoomControlBadge {
+                    Image(systemName: "1.magnifyingglass")
+                }
+            }
+            Button { increaseZoom() } label: {
+                ZoomControlBadge {
+                    Image(systemName: "plus.magnifyingglass")
+                }
+            }
+            Toggle(isOn: $viewModel.isZoomFocusPointVisible) {
+                ZoomControlBadge(width: 62) {
+                    HStack(spacing: 6) {
+                        Image(systemName: viewModel.isZoomFocusPointVisible ? "dot.circle.viewfinder" : "dot.viewfinder")
+                            .foregroundStyle(viewModel.isZoomFocusPointVisible ? .yellow : .primary)
+                            .symbolEffect(.bounce, value: viewModel.isZoomFocusPointVisible)
+
+                        Text("A")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .toggleStyle(.button)
+            .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
+            .accessibilityLabel("Focus Point")
+            .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
         }
     }
 

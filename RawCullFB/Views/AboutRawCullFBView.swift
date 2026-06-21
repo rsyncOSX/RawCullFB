@@ -5,9 +5,11 @@ struct AboutRawCullFBView: View {
     private let shortcuts = [
         ShortcutRow(context: "Grid", keys: "Arrow keys / N / P", action: "Select next or previous image"),
         ShortcutRow(context: "Grid", keys: "Return", action: "Open selected image in zoom"),
+        ShortcutRow(context: "Grid", keys: "Z", action: "Inspect focus point at 60% pixels"),
         ShortcutRow(context: "Zoom", keys: "N / P", action: "Show next or previous image"),
         ShortcutRow(context: "Zoom", keys: "E", action: "Show or hide EXIF data"),
         ShortcutRow(context: "Zoom", keys: "A", action: "Show or hide focus point"),
+        ShortcutRow(context: "Zoom", keys: "Z", action: "Inspect focus point at 60% pixels"),
         ShortcutRow(context: "Zoom", keys: "+ / -", action: "Zoom in or out"),
         ShortcutRow(context: "Zoom", keys: "Esc", action: "Close zoom")
     ]
