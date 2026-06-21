@@ -32,6 +32,24 @@ enum OrientationNormalizedImageLoader {
         return loadDirectImage(from: imageSource)
     }
 
+    nonisolated static func loadThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
+        loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: true)
+    }
+
+    nonisolated static func loadEmbeddedThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
+        loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: false)
+    }
+
+    nonisolated static func applyingSourceOrientation(to image: CGImage, from url: URL) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return image
+        }
+        defer { removeCachedImages(from: imageSource) }
+        let orientation = exifOrientation(from: imageSource, index: 0)
+        return applyOrientation(to: image, orientation: orientation)
+    }
+
     nonisolated static func loadSonyEmbeddedPreview(from rawURL: URL) -> CGImage? {
         guard rawURL.pathExtension.localizedCaseInsensitiveCompare(SupportedFileType.arw.rawValue) == .orderedSame,
               let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: rawURL),
@@ -40,10 +58,53 @@ enum OrientationNormalizedImageLoader {
         else {
             return nil
         }
-        return loadCGImage(from: data)
+        return loadEmbeddedPreview(from: data, sourceURL: rawURL)
+    }
+
+    nonisolated static func loadEmbeddedPreview(from data: Data, sourceURL: URL) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
+            return nil
+        }
+        defer { removeCachedImages(from: imageSource) }
+
+        if exifOrientationIfPresent(from: imageSource, index: 0) != nil {
+            return loadDirectImage(from: imageSource)
+        }
+
+        guard let image = loadUnorientedCGImage(from: imageSource) else {
+            return nil
+        }
+        return applyingSourceOrientation(to: image, from: sourceURL)
     }
 
     // MARK: - Private
+
+    private nonisolated static func loadThumbnail(from url: URL, maxPixelSize: Int, createIfAbsent: Bool) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return nil
+        }
+        defer { removeCachedImages(from: imageSource) }
+        return loadThumbnail(from: imageSource, maxPixelSize: maxPixelSize, createIfAbsent: createIfAbsent)
+    }
+
+    private nonisolated static func loadThumbnail(
+        from imageSource: CGImageSource,
+        maxPixelSize: Int,
+        createIfAbsent: Bool,
+    ) -> CGImage? {
+        let boundedMaxPixelSize = max(maxPixelSize, 1)
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: createIfAbsent,
+            kCGImageSourceCreateThumbnailFromImageAlways: false,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: boundedMaxPixelSize,
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, decodeOptions as CFDictionary)
+    }
 
     /// Direct decode without thumbnail pipeline. Reads EXIF orientation and
     /// applies it via CGContext rotation, keeping peak memory to one bitmap
@@ -62,9 +123,21 @@ enum OrientationNormalizedImageLoader {
         return applyOrientation(to: image, orientation: orientation)
     }
 
+    private nonisolated static func loadUnorientedCGImage(from imageSource: CGImageSource) -> CGImage? {
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false
+        ]
+        return CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions as CFDictionary)
+    }
+
     private nonisolated static func exifOrientation(from imageSource: CGImageSource, index: Int) -> Int {
+        exifOrientationIfPresent(from: imageSource, index: index) ?? 1
+    }
+
+    private nonisolated static func exifOrientationIfPresent(from imageSource: CGImageSource, index: Int) -> Int? {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as? [CFString: Any] else {
-            return 1
+            return nil
         }
         // Orientation can live at the top level or inside the TIFF dictionary
         if let orientation = properties[kCGImagePropertyOrientation] as? Int {
@@ -74,7 +147,7 @@ enum OrientationNormalizedImageLoader {
            let orientation = tiff[kCGImagePropertyTIFFOrientation] as? Int {
             return orientation
         }
-        return 1 // default: no rotation
+        return nil
     }
 
     /// Applies EXIF orientation (1–8) by redrawing into a correctly sized CGContext.
@@ -118,22 +191,22 @@ enum OrientationNormalizedImageLoader {
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.scaleBy(x: 1, y: -1)
 
-        case 5: // transpose (rotate 90 CCW + flip horizontal)
-            context.rotate(by: -.pi / 2)
-            context.scaleBy(x: -1, y: 1)
-
-        case 6: // rotate 90 CW
-            context.translateBy(x: CGFloat(destWidth), y: 0)
-            context.rotate(by: .pi / 2)
-
-        case 7: // transverse (rotate 90 CW + flip horizontal)
+        case 5: // transpose
             context.translateBy(x: CGFloat(destWidth), y: CGFloat(destHeight))
             context.rotate(by: .pi / 2)
             context.scaleBy(x: -1, y: 1)
 
-        case 8: // rotate 90 CCW
+        case 6: // rotate 90 CW
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.rotate(by: -.pi / 2)
+
+        case 7: // transverse
+            context.rotate(by: -.pi / 2)
+            context.scaleBy(x: -1, y: 1)
+
+        case 8: // rotate 90 CCW
+            context.translateBy(x: CGFloat(destWidth), y: 0)
+            context.rotate(by: .pi / 2)
 
         default:
             break

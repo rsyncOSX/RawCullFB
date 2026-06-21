@@ -84,13 +84,24 @@ actor RawImageLoader {
         }
 
         let task = Task<NSImage?, Never>(priority: .utility) {
-            guard let format = RawFormatRegistry.format(for: url),
-                  let cgImage = try? await format.extractThumbnail(
-                      from: url,
-                      maxDimension: CGFloat(targetSize),
-                      qualityCost: 4,
-                  )
-            else { return nil }
+            let cgImage: CGImage?
+            if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
+                from: url,
+                maxPixelSize: targetSize,
+            ) {
+                cgImage = embeddedThumbnail
+            } else if let format = RawFormatRegistry.format(for: url),
+                      let extracted = try? await format.extractThumbnail(
+                          from: url,
+                          maxDimension: CGFloat(targetSize),
+                          qualityCost: 4,
+                      ) {
+                cgImage = OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
+            } else {
+                cgImage = nil
+            }
+
+            guard let cgImage else { return nil }
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             await MemoryImageCache.shared.storeThumbnail(image, for: url)
@@ -163,7 +174,7 @@ actor RawImageLoader {
               let extracted = await format.extractFullJPEG(from: url, fullSize: false)
         else { return nil }
 
-        return extracted
+        return OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
     }
 
     private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {
