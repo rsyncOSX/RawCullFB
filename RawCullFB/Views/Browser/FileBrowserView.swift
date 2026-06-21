@@ -183,8 +183,3 @@ struct FileBrowserView: View {
         }
     }
 }
-
-private enum FolderPickerPurpose: Equatable {
-    case addRootFolder
-    case copyRated(RatedCopyFilter)
-}

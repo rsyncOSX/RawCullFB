@@ -2,21 +2,6 @@ import CoreGraphics
 import Foundation
 import Observation
 
-enum BrowserZoomInitialMode: Equatable {
-    case fit
-    case actualPixels
-}
-
-struct BrowserZoomLaunchContext: Equatable {
-    var initialZoomMode: BrowserZoomInitialMode
-    var showFocusPointOnOpen: Bool
-
-    static let `default` = BrowserZoomLaunchContext(
-        initialZoomMode: .fit,
-        showFocusPointOnOpen: false,
-    )
-}
-
 @Observable @MainActor
 final class FileBrowserViewModel {
     var rootFolders: [BrowserFolderItem] = []
@@ -700,65 +685,5 @@ final class FileBrowserViewModel {
         guard url.startAccessingSecurityScopedResource() else { return false }
         activeSecurityScopedURL = url
         return true
-    }
-}
-
-enum RatedCopyFilter: Hashable, Identifiable {
-    case positive
-    case rating(Int)
-    case rejected
-
-    var id: String {
-        switch self {
-        case .positive:
-            "positive"
-
-        case let .rating(rating):
-            "rating-\(rating)"
-
-        case .rejected:
-            "rejected"
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .positive:
-            "Rated 2-5"
-
-        case let .rating(rating):
-            "Rated \(rating)"
-
-        case .rejected:
-            "Rejected"
-        }
-    }
-
-    func includes(_ rating: Int) -> Bool {
-        switch self {
-        case .positive:
-            (2 ... 5).contains(rating)
-
-        case let .rating(targetRating):
-            rating == targetRating
-
-        case .rejected:
-            rating == -1
-        }
-    }
-}
-
-private struct CatalogFileRatingKey: Hashable {
-    let catalogURL: URL
-    let fileName: String
-}
-
-private extension URL {
-    func isEqualOrDescendant(of ancestorURL: URL) -> Bool {
-        let pathComponents = standardizedFileURL.pathComponents
-        let ancestorPathComponents = ancestorURL.standardizedFileURL.pathComponents
-
-        guard pathComponents.count >= ancestorPathComponents.count else { return false }
-        return zip(pathComponents, ancestorPathComponents).allSatisfy(==)
     }
 }

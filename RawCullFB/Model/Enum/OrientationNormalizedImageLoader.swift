@@ -2,12 +2,6 @@ import Foundation
 import ImageIO
 import RawParserKit
 
-enum SupportedFileType: String, CaseIterable {
-    case arw
-    case nef
-    case jpeg, jpg
-}
-
 enum OrientationNormalizedImageLoader {
     // MARK: - Public API
 

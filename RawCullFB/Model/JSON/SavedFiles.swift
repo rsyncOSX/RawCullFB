@@ -95,18 +95,3 @@ extension SavedFiles: Hashable, Equatable {
         hasher.combine(catalog)
     }
 }
-
-struct FileRecord: Identifiable, Codable {
-    var id = UUID()
-    var fileName: String?
-    var dateTagged: String?
-    var rating: Int?
-}
-
-extension FileRecord: Equatable {
-    static func == (lhs: FileRecord, rhs: FileRecord) -> Bool {
-        lhs.fileName == rhs.fileName &&
-            lhs.dateTagged == rhs.dateTagged &&
-            lhs.rating == rhs.rating
-    }
-}
