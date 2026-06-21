@@ -12,6 +12,7 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     case zoomIn
     case zoomOut
     case toggleFocusPoints
+    case inspectActualPixels
     case rating(Int)
 
     nonisolated static func resolve(
@@ -49,6 +50,9 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
         case "a", "A":
             .toggleFocusPoints
 
+        case "z", "Z":
+            .inspectActualPixels
+
         default:
             BrowserRatingShortcut.rating(for: characters).map(ZoomOverlayKeyAction.rating)
         }
@@ -64,6 +68,8 @@ struct BrowserZoomOverlayView: View {
     @FocusState private var isFocused: Bool
 
     @State private var keyMonitor: Any?
+    @State private var pendingInitialZoomMode: BrowserZoomInitialMode?
+    @State private var viewportSize: CGSize = .zero
 
     var body: some View {
         ZStack {
@@ -100,6 +106,32 @@ struct BrowserZoomOverlayView: View {
                     .scaleEffect(viewModel.zoomScale)
                     .offset(viewModel.zoomOffset)
                     .gesture(zoomPanGesture)
+                    .onAppear {
+                        viewportSize = geometry.size
+                        applyPendingInitialZoomIfNeeded(
+                            imageSize: CGSize(width: image.width, height: image.height),
+                            viewportSize: geometry.size,
+                        )
+                    }
+                    .onChange(of: geometry.size) { _, size in
+                        viewportSize = size
+                        applyPendingInitialZoomIfNeeded(
+                            imageSize: CGSize(width: image.width, height: image.height),
+                            viewportSize: size,
+                        )
+                    }
+                    .onChange(of: viewModel.zoomImage?.hashValue) { _, _ in
+                        applyPendingInitialZoomIfNeeded(
+                            imageSize: CGSize(width: image.width, height: image.height),
+                            viewportSize: geometry.size,
+                        )
+                    }
+                    .onChange(of: viewModel.zoomExifInfo?.focusPoint) { _, _ in
+                        applyPendingInitialZoomIfNeeded(
+                            imageSize: CGSize(width: image.width, height: image.height),
+                            viewportSize: geometry.size,
+                        )
+                    }
                     .onTapGesture(count: 2) {
                         withAnimation(.spring()) {
                             viewModel.zoomScale > 1.0 ? resetToFit() : zoomToTwoX()
@@ -255,7 +287,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAzZxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -263,6 +295,7 @@ struct BrowserZoomOverlayView: View {
             ))
         }
         .onAppear {
+            pendingInitialZoomMode = viewModel.zoomLaunchContext.initialZoomMode
             installKeyMonitor()
         }
         .onDisappear {
@@ -352,6 +385,55 @@ struct BrowserZoomOverlayView: View {
         lastOffset = .zero
     }
 
+    private func inspectActualPixels() {
+        viewModel.zoomLaunchContext = BrowserZoomLaunchContext(
+            initialZoomMode: .actualPixels,
+            showFocusPointOnOpen: true,
+        )
+        pendingInitialZoomMode = .actualPixels
+
+        guard let image = viewModel.zoomImage,
+              viewportSize.width > 0,
+              viewportSize.height > 0
+        else { return }
+        applyActualPixelsZoom(
+            imageSize: CGSize(width: image.width, height: image.height),
+            viewportSize: viewportSize,
+        )
+        pendingInitialZoomMode = nil
+    }
+
+    private func applyPendingInitialZoomIfNeeded(imageSize: CGSize, viewportSize: CGSize) {
+        guard pendingInitialZoomMode == .actualPixels,
+              viewportSize.width > 0,
+              viewportSize.height > 0
+        else { return }
+        if viewModel.zoomLaunchContext.showFocusPointOnOpen,
+           !viewModel.isZoomExifInfoLoaded {
+            return
+        }
+        applyActualPixelsZoom(imageSize: imageSize, viewportSize: viewportSize)
+        pendingInitialZoomMode = nil
+    }
+
+    private func applyActualPixelsZoom(imageSize: CGSize, viewportSize: CGSize) {
+        let transform = BrowserZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: normalizedFocusPoint,
+        )
+        viewModel.zoomScale = transform.scale
+        lastScale = transform.scale
+        viewModel.zoomOffset = transform.offset
+        lastOffset = transform.offset
+        viewModel.isZoomFocusPointVisible = viewModel.zoomExifInfo?.focusPoint != nil
+    }
+
+    private var normalizedFocusPoint: CGPoint? {
+        guard let focusPoint = viewModel.zoomExifInfo?.focusPoint else { return nil }
+        return CGPoint(x: CGFloat(focusPoint.normalizedX), y: CGFloat(focusPoint.normalizedY))
+    }
+
     private func close() {
         viewModel.closeZoom()
     }
@@ -384,6 +466,10 @@ struct BrowserZoomOverlayView: View {
 
         case .toggleFocusPoints:
             toggleFocusPoint()
+            return .handled
+
+        case .inspectActualPixels:
+            inspectActualPixels()
             return .handled
 
         case let .rating(rating):
@@ -425,6 +511,70 @@ struct BrowserZoomOverlayView: View {
             keyCode: event.keyCode,
             navigationAxis: viewModel.zoomOverlayNavigationAxis,
         ))
+    }
+}
+
+private struct BrowserZoomViewportTransform: Equatable {
+    var scale: CGFloat
+    var offset: CGSize
+}
+
+private enum BrowserZoomViewportMath {
+    static func actualPixelsTransform(
+        imageSize: CGSize,
+        viewportSize: CGSize,
+        normalizedFocusPoint: CGPoint?,
+    ) -> BrowserZoomViewportTransform {
+        let scale = actualPixelsScale(imageSize: imageSize, viewportSize: viewportSize)
+        guard let normalizedFocusPoint else {
+            return BrowserZoomViewportTransform(scale: scale, offset: .zero)
+        }
+
+        let fitRect = fittedImageRect(imageSize: imageSize, containerSize: viewportSize)
+        guard fitRect.width > 0, fitRect.height > 0 else {
+            return BrowserZoomViewportTransform(scale: scale, offset: .zero)
+        }
+
+        let point = CGPoint(
+            x: fitRect.minX + normalizedFocusPoint.x * fitRect.width,
+            y: fitRect.minY + normalizedFocusPoint.y * fitRect.height,
+        )
+        let viewportCenter = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+        let desiredOffset = CGSize(
+            width: (viewportCenter.x - point.x) * scale,
+            height: (viewportCenter.y - point.y) * scale,
+        )
+        let scaledImageSize = CGSize(width: fitRect.width * scale, height: fitRect.height * scale)
+
+        return BrowserZoomViewportTransform(
+            scale: scale,
+            offset: clampedOffset(
+                desiredOffset,
+                scaledImageSize: scaledImageSize,
+                viewportSize: viewportSize,
+            ),
+        )
+    }
+
+    private static func actualPixelsScale(imageSize: CGSize, viewportSize: CGSize) -> CGFloat {
+        let fitRect = fittedImageRect(imageSize: imageSize, containerSize: viewportSize)
+        guard fitRect.width > 0, fitRect.height > 0 else { return 1.0 }
+        let fitScale = min(fitRect.width / imageSize.width, fitRect.height / imageSize.height)
+        guard fitScale > 0, fitScale.isFinite else { return 1.0 }
+        return 0.6 / fitScale
+    }
+
+    private static func clampedOffset(
+        _ offset: CGSize,
+        scaledImageSize: CGSize,
+        viewportSize: CGSize,
+    ) -> CGSize {
+        let maxX = max(0, (scaledImageSize.width - viewportSize.width) / 2)
+        let maxY = max(0, (scaledImageSize.height - viewportSize.height) / 2)
+        return CGSize(
+            width: min(max(offset.width, -maxX), maxX),
+            height: min(max(offset.height, -maxY), maxY),
+        )
     }
 }
 

@@ -2,6 +2,21 @@ import CoreGraphics
 import Foundation
 import Observation
 
+enum BrowserZoomInitialMode: Equatable {
+    case fit
+    case actualPixels
+}
+
+struct BrowserZoomLaunchContext: Equatable {
+    var initialZoomMode: BrowserZoomInitialMode
+    var showFocusPointOnOpen: Bool
+
+    static let `default` = BrowserZoomLaunchContext(
+        initialZoomMode: .fit,
+        showFocusPointOnOpen: false,
+    )
+}
+
 @Observable @MainActor
 final class FileBrowserViewModel {
     var rootFolders: [BrowserFolderItem] = []
@@ -24,11 +39,13 @@ final class FileBrowserViewModel {
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
     var zoomExifInfo: BrowserExifInfo?
+    var isZoomExifInfoLoaded = false
     var zoomScale: CGFloat = 1.0
     var zoomOffset: CGSize = .zero
     var isZoomMetadataCollapsed = false
     var zoomMetadataOffset: CGSize = .zero
     var isZoomFocusPointVisible = false
+    var zoomLaunchContext: BrowserZoomLaunchContext = .default
     var settings = BrowserSettings()
     private var fileRatings: [CatalogFileRatingKey: Int] = [:]
 
@@ -266,7 +283,11 @@ final class FileBrowserViewModel {
         selectedFileID = file.id
     }
 
-    func openZoom(for file: BrowserFileItem? = nil) {
+    func openZoom(
+        for file: BrowserFileItem? = nil,
+        initialZoomMode: BrowserZoomInitialMode = .fit,
+        showFocusPointOnOpen: Bool = false,
+    ) {
         if let file {
             selectedFileID = file.id
         }
@@ -275,6 +296,11 @@ final class FileBrowserViewModel {
         zoomTask?.cancel()
         zoomImage = nil
         zoomExifInfo = nil
+        isZoomExifInfoLoaded = false
+        zoomLaunchContext = BrowserZoomLaunchContext(
+            initialZoomMode: initialZoomMode,
+            showFocusPointOnOpen: showFocusPointOnOpen,
+        )
         zoomOverlayVisible = true
         zoomTask = Task {
             async let image = RawImageLoader.shared.extractedJPG(for: selectedFile.url)
@@ -283,6 +309,7 @@ final class FileBrowserViewModel {
             guard !Task.isCancelled else { return }
             zoomImage = loadedImage
             zoomExifInfo = loadedExifInfo
+            isZoomExifInfoLoaded = true
         }
     }
 
@@ -292,14 +319,18 @@ final class FileBrowserViewModel {
         zoomOverlayVisible = false
         zoomImage = nil
         zoomExifInfo = nil
+        isZoomExifInfoLoaded = false
+        zoomLaunchContext = .default
     }
 
     func resetZoomInterfaceState() {
         zoomScale = 1.0
         zoomOffset = .zero
+        isZoomExifInfoLoaded = false
         isZoomMetadataCollapsed = false
         zoomMetadataOffset = .zero
         isZoomFocusPointVisible = false
+        zoomLaunchContext = .default
     }
 
     func navigateSelection(by delta: Int) {
@@ -313,7 +344,11 @@ final class FileBrowserViewModel {
         selectedFileIDs = [files[nextIndex].id]
         selectionAnchorFileID = files[nextIndex].id
         if zoomOverlayVisible {
-            openZoom(for: files[nextIndex])
+            openZoom(
+                for: files[nextIndex],
+                initialZoomMode: zoomLaunchContext.initialZoomMode,
+                showFocusPointOnOpen: zoomLaunchContext.showFocusPointOnOpen,
+            )
         }
     }
 
