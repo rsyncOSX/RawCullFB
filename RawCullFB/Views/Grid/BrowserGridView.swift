@@ -50,7 +50,7 @@ struct BrowserGridView: View {
                 ContentUnavailableView(
                     "No Supported Files",
                     systemImage: "photo.on.rectangle.angled",
-                    description: Text("Choose a folder containing supported raw files."),
+                    description: Text("Choose a folder containing supported RAW or JPG files."),
                 )
             }
         }

@@ -17,7 +17,7 @@ struct BrowserSidebarView: View {
                 ContentUnavailableView(
                     "No Folders",
                     systemImage: "folder",
-                    description: Text("Add a folder to browse supported raw files."),
+                    description: Text("Add a folder to browse supported RAW or JPG files."),
                 )
             }
         }

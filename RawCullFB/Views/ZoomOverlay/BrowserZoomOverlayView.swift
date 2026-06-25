@@ -82,7 +82,7 @@ struct BrowserZoomOverlayView: View {
                     HStack(spacing: 10) {
                         ProgressView()
                             .controlSize(.large)
-                        Text("Extracting embedded JPG...")
+                        Text("Loading JPG...")
                             .font(.title3)
                     }
                     .padding(18)

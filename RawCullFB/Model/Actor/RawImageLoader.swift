@@ -31,7 +31,7 @@ actor RawImageLoader {
 
     func discoverSupportedFiles(at folderURL: URL) async -> [BrowserFileItem] {
         await Task.detached(priority: .utility) {
-            let supported = RawFormatRegistry.allExtensions
+            let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.jpegExtensions)
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey]
             guard let children = try? FileManager.default.contentsOfDirectory(
                 at: folderURL,
@@ -39,7 +39,7 @@ actor RawImageLoader {
                 options: [.skipsHiddenFiles, .skipsPackageDescendants],
             ) else { return [] }
 
-            return children.compactMap { url -> BrowserFileItem? in
+            let files = children.compactMap { url -> BrowserFileItem? in
                 guard supported.contains(url.pathExtension.lowercased()) else { return nil }
                 let values = try? url.resourceValues(forKeys: keys)
                 guard values?.isRegularFile == true, values?.isHidden != true else { return nil }
@@ -49,15 +49,18 @@ actor RawImageLoader {
                     modifiedDate: values?.contentModificationDate,
                 )
             }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            let jpegFiles = files.filter { SupportedFileType.isJPEG($0.url) }
+            return (jpegFiles.isEmpty ? files : jpegFiles)
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }.value
     }
 
     func preloadThumbnails(for files: [BrowserFileItem], targetSize: Int = 200) async {
         await withTaskGroup(of: Void.self) { group in
             let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount * 2)
+            let rawFiles = files.filter { !SupportedFileType.isJPEG($0.url) }
 
-            for (index, file) in files.enumerated() {
+            for (index, file) in rawFiles.enumerated() {
                 if Task.isCancelled {
                     group.cancelAll()
                     break
@@ -84,6 +87,12 @@ actor RawImageLoader {
         }
 
         let task = Task<NSImage?, Never>(priority: .utility) {
+            if SupportedFileType.isJPEG(url) {
+                guard let image = NSImage(contentsOf: url) else { return nil }
+                await MemoryImageCache.shared.storeThumbnail(image, for: url)
+                return image
+            }
+
             let cgImage: CGImage?
             if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
                 from: url,
@@ -124,6 +133,12 @@ actor RawImageLoader {
         }
 
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
+            if SupportedFileType.isJPEG(url) {
+                guard let image = await Self.loadUnmodifiedImage(from: url) else { return nil }
+                await MemoryImageCache.shared.storeExtractedJPG(image, for: url)
+                return image
+            }
+
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let sidecarImage = await Self.loadOrientationNormalizedImage(from: sidecarURL) {
                 await MemoryImageCache.shared.storeExtractedJPG(sidecarImage, for: url)
@@ -155,6 +170,14 @@ actor RawImageLoader {
         let info = await task.value
         exifInfoTasks[url] = nil
         return info
+    }
+
+    private nonisolated static func loadUnmodifiedImage(from url: URL) async -> CGImage? {
+        await Task.detached(priority: .userInitiated) {
+            let options = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, options) else { return nil }
+            return CGImageSourceCreateImageAtIndex(source, 0, options)
+        }.value
     }
 
     private nonisolated static func loadOrientationNormalizedImage(from url: URL) async -> CGImage? {
@@ -382,19 +405,19 @@ actor RawImageLoader {
     }
 
     private nonisolated static func supportedFileCount(in folderURL: URL) -> Int {
-        let supported = RawFormatRegistry.allExtensions
+        let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.jpegExtensions)
         guard let children = try? FileManager.default.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants],
         ) else { return 0 }
 
-        return children.reduce(into: 0) { count, url in
-            guard supported.contains(url.pathExtension.lowercased()) else { return }
+        let supportedFiles = children.filter { url in
+            guard supported.contains(url.pathExtension.lowercased()) else { return false }
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
-            if values?.isRegularFile == true {
-                count += 1
-            }
+            return values?.isRegularFile == true
         }
+        let jpegCount = supportedFiles.count(where: SupportedFileType.isJPEG)
+        return jpegCount > 0 ? jpegCount : supportedFiles.count
     }
 }
