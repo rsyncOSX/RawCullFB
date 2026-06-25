@@ -93,21 +93,20 @@ actor RawImageLoader {
                 return image
             }
 
-            let cgImage: CGImage?
-            if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
+            let cgImage: CGImage? = if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
                 from: url,
                 maxPixelSize: targetSize,
             ) {
-                cgImage = embeddedThumbnail
+                embeddedThumbnail
             } else if let format = RawFormatRegistry.format(for: url),
                       let extracted = try? await format.extractThumbnail(
                           from: url,
                           maxDimension: CGFloat(targetSize),
                           qualityCost: 4,
                       ) {
-                cgImage = OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
+                OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
             } else {
-                cgImage = nil
+                nil
             }
 
             guard let cgImage else { return nil }

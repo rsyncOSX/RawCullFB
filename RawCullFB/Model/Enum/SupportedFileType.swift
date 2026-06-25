@@ -7,7 +7,7 @@ enum SupportedFileType: String, CaseIterable {
 
     nonisolated static let jpegExtensions: Set<String> = [
         SupportedFileType.jpeg.rawValue,
-        SupportedFileType.jpg.rawValue,
+        SupportedFileType.jpg.rawValue
     ]
 
     nonisolated static func isJPEG(_ url: URL) -> Bool {
