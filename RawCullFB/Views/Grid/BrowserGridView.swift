@@ -101,9 +101,6 @@ struct BrowserGridView: View {
             case "p", "P":
                 viewModel.navigateSelection(by: -1)
 
-            case "z", "Z":
-                viewModel.openZoom(initialZoomMode: .actualPixels, showFocusPointOnOpen: true)
-
             default:
                 break
             }
