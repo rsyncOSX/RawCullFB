@@ -276,7 +276,7 @@ final class FileBrowserViewModel {
             showFocusPointOnOpen: showFocusPointOnOpen,
         )
         zoomOverlayVisible = true
-        let previewSize = settings.thumbnailSizePreview
+        let previewSize = settings.thumbnailSizeFullSize
         zoomTask = Task {
             async let image = RawImageLoader.shared.previewImage(
                 for: selectedFile.url,
