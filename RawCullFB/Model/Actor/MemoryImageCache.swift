@@ -4,12 +4,17 @@ import Foundation
 actor MemoryImageCache {
     static let shared = MemoryImageCache()
 
+    private struct ImageCacheKey: Hashable {
+        let url: URL
+        let maxPixelSize: Int
+    }
+
     private var thumbnailCache: [URL: CachedNSImage] = [:]
     private var thumbnailAccessOrder: [URL] = []
     private var thumbnailCostLimit = BrowserSettings.defaultGridCacheSizeMB * 1024 * 1024
     private var thumbnailCost = 0
-    private var extractedJPGCache: [URL: CachedCGImage] = [:]
-    private var extractedJPGAccessOrder: [URL] = []
+    private var extractedJPGCache: [ImageCacheKey: CachedCGImage] = [:]
+    private var extractedJPGAccessOrder: [ImageCacheKey] = []
     private var extractedJPGCostLimit = BrowserSettings.defaultMemoryCacheSizeMB * 1024 * 1024
     private var extractedJPGCost = 0
     private var maxCachedExtractedJPGs = BrowserSettings.defaultMaxCachedExtractedJPGs
@@ -30,9 +35,10 @@ actor MemoryImageCache {
         return cached.image
     }
 
-    func extractedJPG(for url: URL) -> CGImage? {
-        guard let cached = extractedJPGCache[url] else { return nil }
-        markExtractedJPGAsRecentlyUsed(url)
+    func extractedJPG(for url: URL, maxPixelSize: Int? = nil) -> CGImage? {
+        let key = imageCacheKey(for: url, maxPixelSize: maxPixelSize)
+        guard let cached = extractedJPGCache[key] else { return nil }
+        markExtractedJPGAsRecentlyUsed(key)
         return cached.image
     }
 
@@ -49,16 +55,17 @@ actor MemoryImageCache {
         trimThumbnailCache()
     }
 
-    func storeExtractedJPG(_ image: CGImage, for url: URL) {
+    func storeExtractedJPG(_ image: CGImage, for url: URL, maxPixelSize: Int? = nil) {
         guard maxCachedExtractedJPGs > 0, extractedJPGCostLimit > 0 else { return }
 
+        let key = imageCacheKey(for: url, maxPixelSize: maxPixelSize)
         let cached = CachedCGImage(image: image)
-        if let previous = extractedJPGCache[url] {
+        if let previous = extractedJPGCache[key] {
             extractedJPGCost -= previous.cost
         }
-        extractedJPGCache[url] = cached
+        extractedJPGCache[key] = cached
         extractedJPGCost += cached.cost
-        markExtractedJPGAsRecentlyUsed(url)
+        markExtractedJPGAsRecentlyUsed(key)
         trimExtractedJPGCache()
     }
 
@@ -76,9 +83,9 @@ actor MemoryImageCache {
         thumbnailAccessOrder.append(url)
     }
 
-    private func markExtractedJPGAsRecentlyUsed(_ url: URL) {
-        extractedJPGAccessOrder.removeAll { $0 == url }
-        extractedJPGAccessOrder.append(url)
+    private func markExtractedJPGAsRecentlyUsed(_ key: ImageCacheKey) {
+        extractedJPGAccessOrder.removeAll { $0 == key }
+        extractedJPGAccessOrder.append(key)
     }
 
     private func trimThumbnailCache() {
@@ -93,11 +100,15 @@ actor MemoryImageCache {
 
     private func trimExtractedJPGCache() {
         while extractedJPGCache.count > maxCachedExtractedJPGs || extractedJPGCost > extractedJPGCostLimit {
-            guard let oldestURL = extractedJPGAccessOrder.first else { return }
+            guard let oldestKey = extractedJPGAccessOrder.first else { return }
             extractedJPGAccessOrder.removeFirst()
-            if let removed = extractedJPGCache.removeValue(forKey: oldestURL) {
+            if let removed = extractedJPGCache.removeValue(forKey: oldestKey) {
                 extractedJPGCost -= removed.cost
             }
         }
+    }
+
+    private func imageCacheKey(for url: URL, maxPixelSize: Int?) -> ImageCacheKey {
+        ImageCacheKey(url: url, maxPixelSize: max(0, maxPixelSize ?? 0))
     }
 }

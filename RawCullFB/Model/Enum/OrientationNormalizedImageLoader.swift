@@ -34,6 +34,15 @@ enum OrientationNormalizedImageLoader {
         loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: false)
     }
 
+    nonisolated static func loadPreview(from url: URL, maxPixelSize: Int) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return nil
+        }
+        defer { removeCachedImages(from: imageSource) }
+        return loadPreview(from: imageSource, maxPixelSize: maxPixelSize)
+    }
+
     nonisolated static func applyingSourceOrientation(to image: CGImage, from url: URL) -> CGImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
@@ -44,7 +53,7 @@ enum OrientationNormalizedImageLoader {
         return applyOrientation(to: image, orientation: orientation)
     }
 
-    nonisolated static func loadSonyEmbeddedPreview(from rawURL: URL) -> CGImage? {
+    nonisolated static func loadSonyEmbeddedPreview(from rawURL: URL, maxPixelSize: Int? = nil) -> CGImage? {
         guard rawURL.pathExtension.localizedCaseInsensitiveCompare(SupportedFileType.arw.rawValue) == .orderedSame,
               let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: rawURL),
               let location = locations.fullJPEG ?? locations.preview ?? locations.thumbnail,
@@ -52,15 +61,25 @@ enum OrientationNormalizedImageLoader {
         else {
             return nil
         }
-        return loadEmbeddedPreview(from: data, sourceURL: rawURL)
+        return loadEmbeddedPreview(from: data, sourceURL: rawURL, maxPixelSize: maxPixelSize)
     }
 
-    nonisolated static func loadEmbeddedPreview(from data: Data, sourceURL: URL) -> CGImage? {
+    nonisolated static func loadEmbeddedPreview(from data: Data, sourceURL: URL, maxPixelSize: Int? = nil) -> CGImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
             return nil
         }
         defer { removeCachedImages(from: imageSource) }
+
+        if let maxPixelSize {
+            guard let image = loadPreview(from: imageSource, maxPixelSize: maxPixelSize) else {
+                return nil
+            }
+            guard exifOrientationIfPresent(from: imageSource, index: 0) == nil else {
+                return image
+            }
+            return applyingSourceOrientation(to: image, from: sourceURL)
+        }
 
         if exifOrientationIfPresent(from: imageSource, index: 0) != nil {
             return loadDirectImage(from: imageSource)
@@ -96,6 +115,18 @@ enum OrientationNormalizedImageLoader {
             kCGImageSourceThumbnailMaxPixelSize: boundedMaxPixelSize,
             kCGImageSourceShouldCache: false,
             kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, decodeOptions as CFDictionary)
+    }
+
+    private nonisolated static func loadPreview(from imageSource: CGImageSource, maxPixelSize: Int) -> CGImage? {
+        let boundedMaxPixelSize = max(maxPixelSize, 1)
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: boundedMaxPixelSize,
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false
         ]
         return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, decodeOptions as CFDictionary)
     }

@@ -287,8 +287,12 @@ final class FileBrowserViewModel {
             showFocusPointOnOpen: showFocusPointOnOpen,
         )
         zoomOverlayVisible = true
+        let previewSize = settings.thumbnailSizePreview
         zoomTask = Task {
-            async let image = RawImageLoader.shared.extractedJPG(for: selectedFile.url)
+            async let image = RawImageLoader.shared.previewImage(
+                for: selectedFile.url,
+                maxPixelSize: previewSize,
+            )
             async let exifInfo = RawImageLoader.shared.exifInfo(for: selectedFile.url)
             let (loadedImage, loadedExifInfo) = await (image, exifInfo)
             guard !Task.isCancelled else { return }
