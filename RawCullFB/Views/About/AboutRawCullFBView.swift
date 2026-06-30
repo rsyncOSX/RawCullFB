@@ -31,7 +31,7 @@ struct AboutRawCullFBView: View {
                 }
             }
 
-            Text("Fast folder-based RAW browsing with embedded JPEG preview, EXIF details, histogram, and focus point overlay.")
+            Text("Fast folder-based photo browsing with RAW, JPEG, TIFF, and PNG support, EXIF details, histogram, and focus point overlay.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

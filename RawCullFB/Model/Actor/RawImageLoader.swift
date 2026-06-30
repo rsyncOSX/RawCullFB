@@ -31,7 +31,7 @@ actor RawImageLoader {
 
     func discoverSupportedFiles(at folderURL: URL) async -> [BrowserFileItem] {
         await Task.detached(priority: .utility) {
-            let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.jpegExtensions)
+            let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.renderedImageExtensions)
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey]
             guard let children = try? FileManager.default.contentsOfDirectory(
                 at: folderURL,
@@ -49,8 +49,8 @@ actor RawImageLoader {
                     modifiedDate: values?.contentModificationDate,
                 )
             }
-            let jpegFiles = files.filter { SupportedFileType.isJPEG($0.url) }
-            return (jpegFiles.isEmpty ? files : jpegFiles)
+            let renderedImageFiles = files.filter { SupportedFileType.isRenderedImage($0.url) }
+            return (renderedImageFiles.isEmpty ? files : renderedImageFiles)
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }.value
     }
@@ -58,7 +58,7 @@ actor RawImageLoader {
     func preloadThumbnails(for files: [BrowserFileItem], targetSize: Int = 200) async {
         await withTaskGroup(of: Void.self) { group in
             let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount * 2)
-            let rawFiles = files.filter { !SupportedFileType.isJPEG($0.url) }
+            let rawFiles = files.filter { !SupportedFileType.isRenderedImage($0.url) }
 
             for (index, file) in rawFiles.enumerated() {
                 if Task.isCancelled {
@@ -89,6 +89,16 @@ actor RawImageLoader {
         let task = Task<NSImage?, Never>(priority: .utility) {
             if SupportedFileType.isJPEG(url) {
                 guard let image = NSImage(contentsOf: url) else { return nil }
+                await MemoryImageCache.shared.storeThumbnail(image, for: url)
+                return image
+            }
+
+            if SupportedFileType.isRenderedImage(url) {
+                guard let cgImage = OrientationNormalizedImageLoader.loadThumbnail(
+                    from: url,
+                    maxPixelSize: targetSize,
+                ) else { return nil }
+                let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
                 await MemoryImageCache.shared.storeThumbnail(image, for: url)
                 return image
             }
@@ -134,6 +144,12 @@ actor RawImageLoader {
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             if SupportedFileType.isJPEG(url) {
                 guard let image = await Self.loadUnmodifiedImage(from: url) else { return nil }
+                await MemoryImageCache.shared.storeExtractedJPG(image, for: url)
+                return image
+            }
+
+            if SupportedFileType.isRenderedImage(url) {
+                guard let image = await Self.loadOrientationNormalizedImage(from: url) else { return nil }
                 await MemoryImageCache.shared.storeExtractedJPG(image, for: url)
                 return image
             }
@@ -404,7 +420,7 @@ actor RawImageLoader {
     }
 
     private nonisolated static func supportedFileCount(in folderURL: URL) -> Int {
-        let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.jpegExtensions)
+        let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.renderedImageExtensions)
         guard let children = try? FileManager.default.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -416,7 +432,7 @@ actor RawImageLoader {
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
             return values?.isRegularFile == true
         }
-        let jpegCount = supportedFiles.count(where: SupportedFileType.isJPEG)
-        return jpegCount > 0 ? jpegCount : supportedFiles.count
+        let renderedImageCount = supportedFiles.count(where: SupportedFileType.isRenderedImage)
+        return renderedImageCount > 0 ? renderedImageCount : supportedFiles.count
     }
 }
