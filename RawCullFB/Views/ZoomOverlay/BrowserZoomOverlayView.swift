@@ -190,7 +190,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAzZxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -320,24 +320,6 @@ struct BrowserZoomOverlayView: View {
         lastOffset = .zero
     }
 
-    private func inspectActualPixels() {
-        viewModel.zoomLaunchContext = BrowserZoomLaunchContext(
-            initialZoomMode: .actualPixels,
-            showFocusPointOnOpen: true,
-        )
-        pendingInitialZoomMode = .actualPixels
-
-        guard let image = viewModel.zoomImage,
-              viewportSize.width > 0,
-              viewportSize.height > 0
-        else { return }
-        applyActualPixelsZoom(
-            imageSize: CGSize(width: image.width, height: image.height),
-            viewportSize: viewportSize,
-        )
-        pendingInitialZoomMode = nil
-    }
-
     private func applyPendingInitialZoomIfNeeded(imageSize: CGSize, viewportSize: CGSize) {
         guard pendingInitialZoomMode == .actualPixels,
               viewportSize.width > 0,
@@ -399,10 +381,6 @@ struct BrowserZoomOverlayView: View {
 
         case .toggleFocusPoints:
             toggleFocusPoint()
-            return .handled
-
-        case .inspectActualPixels:
-            inspectActualPixels()
             return .handled
 
         case let .rating(rating):
