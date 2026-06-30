@@ -62,7 +62,7 @@ actor ZoomPreviewDiskCache {
         let standardizedURL = sourceURL.standardizedFileURL
         let values = try? standardizedURL.resourceValues(forKeys: [
             .fileSizeKey,
-            .contentModificationDateKey,
+            .contentModificationDateKey
         ])
         let fileSize = values?.fileSize ?? 0
         let modifiedAt = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
@@ -71,7 +71,7 @@ actor ZoomPreviewDiskCache {
             standardizedURL.path,
             "\(fileSize)",
             "\(modifiedAt)",
-            "\(max(maxPixelSize, 1))",
+            "\(max(maxPixelSize, 1))"
         ].joined(separator: "|")
 
         let digest = SHA256.hash(data: Data(key.utf8))
