@@ -188,8 +188,9 @@ final class FileBrowserViewModel {
 
             guard !loadedFiles.isEmpty else { return }
             isCreatingThumbnails = true
+            let thumbnailSize = settings.thumbnailSizeGrid
             thumbnailTask = Task {
-                await RawImageLoader.shared.preloadThumbnails(for: loadedFiles, targetSize: 200)
+                await RawImageLoader.shared.preloadThumbnails(for: loadedFiles, targetSize: thumbnailSize)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard currentScanID == self.scanID else { return }

@@ -10,7 +10,7 @@ actor RawImageLoader {
         let maxPixelSize: Int
     }
 
-    private var thumbnailTasks: [URL: Task<NSImage?, Never>] = [:]
+    private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [ImageTaskKey: Task<CGImage?, Never>] = [:]
     private var exifInfoTasks: [URL: Task<BrowserExifInfo?, Never>] = [:]
 
@@ -63,9 +63,8 @@ actor RawImageLoader {
     func preloadThumbnails(for files: [BrowserFileItem], targetSize: Int = 200) async {
         await withTaskGroup(of: Void.self) { group in
             let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount * 2)
-            let rawFiles = files.filter { !SupportedFileType.isRenderedImage($0.url) }
 
-            for (index, file) in rawFiles.enumerated() {
+            for (index, file) in files.enumerated() {
                 if Task.isCancelled {
                     group.cancelAll()
                     break
@@ -83,40 +82,37 @@ actor RawImageLoader {
     }
 
     func thumbnail(for url: URL, targetSize: Int = 200) async -> NSImage? {
-        if let cached = await MemoryImageCache.shared.thumbnail(for: url) {
+        let boundedTargetSize = max(targetSize, 1)
+        let taskKey = ImageTaskKey(url: url, maxPixelSize: boundedTargetSize)
+
+        if let cached = await MemoryImageCache.shared.thumbnail(for: url, maxPixelSize: boundedTargetSize) {
             return cached
         }
 
-        if let existing = thumbnailTasks[url] {
+        if let existing = thumbnailTasks[taskKey] {
             return await existing.value
         }
 
         let task = Task<NSImage?, Never>(priority: .utility) {
-            if SupportedFileType.isJPEG(url) {
-                guard let image = NSImage(contentsOf: url) else { return nil }
-                await MemoryImageCache.shared.storeThumbnail(image, for: url)
-                return image
-            }
-
             if SupportedFileType.isRenderedImage(url) {
                 guard let cgImage = OrientationNormalizedImageLoader.loadThumbnail(
                     from: url,
-                    maxPixelSize: targetSize,
+                    maxPixelSize: boundedTargetSize,
                 ) else { return nil }
                 let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-                await MemoryImageCache.shared.storeThumbnail(image, for: url)
+                await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
                 return image
             }
 
             let cgImage: CGImage? = if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
                 from: url,
-                maxPixelSize: targetSize,
+                maxPixelSize: boundedTargetSize,
             ) {
                 embeddedThumbnail
             } else if let format = RawFormatRegistry.format(for: url),
                       let extracted = try? await format.extractThumbnail(
                           from: url,
-                          maxDimension: CGFloat(targetSize),
+                          maxDimension: CGFloat(boundedTargetSize),
                           qualityCost: 4,
                       ) {
                 OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
@@ -127,22 +123,18 @@ actor RawImageLoader {
             guard let cgImage else { return nil }
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-            await MemoryImageCache.shared.storeThumbnail(image, for: url)
+            await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
             return image
         }
 
-        thumbnailTasks[url] = task
+        thumbnailTasks[taskKey] = task
         let image = await task.value
-        thumbnailTasks[url] = nil
+        thumbnailTasks[taskKey] = nil
         return image
     }
 
     func extractedJPG(for url: URL) async -> CGImage? {
         let taskKey = ImageTaskKey(url: url, maxPixelSize: 0)
-        if let cached = await MemoryImageCache.shared.extractedJPG(for: url) {
-            return cached
-        }
-
         if let existing = extractedJPGTasks[taskKey] {
             return await existing.value
         }
@@ -150,25 +142,20 @@ actor RawImageLoader {
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             if SupportedFileType.isJPEG(url) {
                 guard let image = await Self.loadUnmodifiedImage(from: url) else { return nil }
-                await MemoryImageCache.shared.storeExtractedJPG(image, for: url)
                 return image
             }
 
             if SupportedFileType.isRenderedImage(url) {
                 guard let image = await Self.loadOrientationNormalizedImage(from: url) else { return nil }
-                await MemoryImageCache.shared.storeExtractedJPG(image, for: url)
                 return image
             }
 
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let sidecarImage = await Self.loadOrientationNormalizedImage(from: sidecarURL) {
-                await MemoryImageCache.shared.storeExtractedJPG(sidecarImage, for: url)
                 return sidecarImage
             }
 
             guard let extracted = await Self.extractOrientationNormalizedImage(from: url) else { return nil }
-
-            await MemoryImageCache.shared.storeExtractedJPG(extracted, for: url)
             return extracted
         }
 
@@ -182,10 +169,6 @@ actor RawImageLoader {
         let boundedMaxPixelSize = max(maxPixelSize, 1)
         let taskKey = ImageTaskKey(url: url, maxPixelSize: boundedMaxPixelSize)
 
-        if let cached = await MemoryImageCache.shared.extractedJPG(for: url, maxPixelSize: boundedMaxPixelSize) {
-            return cached
-        }
-
         if let existing = extractedJPGTasks[taskKey] {
             return await existing.value
         }
@@ -195,26 +178,23 @@ actor RawImageLoader {
                 guard let image = await Self.loadPreviewImage(from: url, maxPixelSize: boundedMaxPixelSize) else {
                     return nil
                 }
-                await MemoryImageCache.shared.storeExtractedJPG(
-                    image,
-                    for: url,
-                    maxPixelSize: boundedMaxPixelSize,
-                )
                 return image
             }
 
             let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let sidecarImage = await Self.loadPreviewImage(from: sidecarURL, maxPixelSize: boundedMaxPixelSize) {
-                await MemoryImageCache.shared.storeExtractedJPG(
-                    sidecarImage,
-                    for: url,
-                    maxPixelSize: boundedMaxPixelSize,
-                )
                 return sidecarImage
             }
 
+            if let cachedImage = await ZoomPreviewDiskCache.shared.cachedImage(
+                for: url,
+                maxPixelSize: boundedMaxPixelSize,
+            ) {
+                return cachedImage
+            }
+
             if let sonyPreview = await Self.loadSonyEmbeddedPreview(from: url, maxPixelSize: boundedMaxPixelSize) {
-                await MemoryImageCache.shared.storeExtractedJPG(
+                await ZoomPreviewDiskCache.shared.store(
                     sonyPreview,
                     for: url,
                     maxPixelSize: boundedMaxPixelSize,
@@ -223,7 +203,7 @@ actor RawImageLoader {
             }
 
             if let embeddedThumbnail = await Self.loadEmbeddedThumbnail(from: url, maxPixelSize: boundedMaxPixelSize) {
-                await MemoryImageCache.shared.storeExtractedJPG(
+                await ZoomPreviewDiskCache.shared.store(
                     embeddedThumbnail,
                     for: url,
                     maxPixelSize: boundedMaxPixelSize,
@@ -240,7 +220,7 @@ actor RawImageLoader {
             else { return nil }
 
             let image = OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
-            await MemoryImageCache.shared.storeExtractedJPG(
+            await ZoomPreviewDiskCache.shared.store(
                 image,
                 for: url,
                 maxPixelSize: boundedMaxPixelSize,

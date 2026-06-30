@@ -6,6 +6,7 @@ struct BrowserThumbnailCell: View {
     let rating: Int?
     let isFocused: Bool
     let isSelected: Bool
+    let thumbnailSize: Int
 
     @State private var image: NSImage?
     @State private var isLoading = false
@@ -20,13 +21,13 @@ struct BrowserThumbnailCell: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .contentShape(.rect)
-        .task(id: file.url) {
-            if let cached = await MemoryImageCache.shared.thumbnail(for: file.url) {
+        .task(id: taskID) {
+            if let cached = await MemoryImageCache.shared.thumbnail(for: file.url, maxPixelSize: thumbnailSize) {
                 image = cached
                 return
             }
             isLoading = true
-            image = await RawImageLoader.shared.thumbnail(for: file.url, targetSize: 200)
+            image = await RawImageLoader.shared.thumbnail(for: file.url, targetSize: thumbnailSize)
             isLoading = false
         }
         .onDisappear {
@@ -75,6 +76,10 @@ struct BrowserThumbnailCell: View {
             return .accentColor.opacity(0.72)
         }
         return .primary.opacity(0.08)
+    }
+
+    private var taskID: String {
+        "\(file.url.path)|\(thumbnailSize)"
     }
 
     @ViewBuilder

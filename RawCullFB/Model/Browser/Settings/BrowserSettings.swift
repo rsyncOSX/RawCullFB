@@ -2,8 +2,9 @@ import Foundation
 
 struct BrowserSettings: Codable {
     nonisolated static let defaultMemoryCacheSizeMB = 768
-    nonisolated static let defaultGridCacheSizeMB = 256
+    nonisolated static let defaultGridCacheSizeMB = 1024
     nonisolated static let defaultMaxCachedExtractedJPGs = 4
+    private nonisolated static let legacyDefaultGridCacheSizeMB = 256
 
     var memoryCacheSizeMB = defaultMemoryCacheSizeMB
     var gridCacheSizeMB = defaultGridCacheSizeMB
@@ -31,10 +32,12 @@ struct BrowserSettings: Codable {
             container.decodeIfPresent(Int.self, forKey: .memoryCacheSizeMB) ?? memoryCacheSizeMB,
             Self.defaultMemoryCacheSizeMB,
         )
-        gridCacheSizeMB = try min(
-            container.decodeIfPresent(Int.self, forKey: .gridCacheSizeMB) ?? gridCacheSizeMB,
-            Self.defaultGridCacheSizeMB,
-        )
+        let decodedGridCacheSizeMB = try container.decodeIfPresent(Int.self, forKey: .gridCacheSizeMB)
+        gridCacheSizeMB = if decodedGridCacheSizeMB == Self.legacyDefaultGridCacheSizeMB {
+            Self.defaultGridCacheSizeMB
+        } else {
+            min(decodedGridCacheSizeMB ?? gridCacheSizeMB, Self.defaultGridCacheSizeMB)
+        }
         maxCachedExtractedJPGs = try min(
             container.decodeIfPresent(Int.self, forKey: .maxCachedExtractedJPGs) ?? maxCachedExtractedJPGs,
             Self.defaultMaxCachedExtractedJPGs,

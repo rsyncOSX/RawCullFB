@@ -27,6 +27,7 @@ struct BrowserGridView: View {
                             rating: viewModel.settings.enableRatingPins ? viewModel.rating(for: file) : nil,
                             isFocused: viewModel.selectedFileID == file.id,
                             isSelected: viewModel.selectedFileIDs.contains(file.id),
+                            thumbnailSize: viewModel.settings.thumbnailSizeGrid,
                         )
                         .onTapGesture {
                             select(file)
