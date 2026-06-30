@@ -202,7 +202,7 @@ struct MemoryTab: View {
     }
 
     @MainActor
-    private func pressureLevelColor(_ level: SharedMemoryCache.MemoryPressureLevel) -> Color {
+    private func pressureLevelColor(_ level: MemoryPressureLevel) -> Color {
         switch level {
         case .normal: .green
         case .warning: .orange

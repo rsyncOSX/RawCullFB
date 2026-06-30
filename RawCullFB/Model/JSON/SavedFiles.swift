@@ -11,7 +11,6 @@
 //
 
 import Foundation
-import RawCullCore
 
 /*
  › [0] RawCull.SavedFiles
@@ -53,7 +52,6 @@ struct SavedFiles: Identifiable, Codable {
     var catalog: URL?
     var dateStart: String?
     var filerecords: [FileRecord]?
-    var burstWinnerOverrides: [BurstWinnerOverride]?
 
     /// Used when reading JSON data from store
     init(_ data: DecodeSavedFiles) {
@@ -68,19 +66,10 @@ struct SavedFiles: Identifiable, Codable {
         }
     }
 
-    /// Create a new record
-    init(catalog: URL, dateStart: String?, filerecord: FileRecord) {
-        self.catalog = catalog
-        self.dateStart = dateStart
-        self.filerecords = [filerecord]
-        burstWinnerOverrides = nil
-    }
-
     init(catalog: URL, dateStart: String?, filerecords: [FileRecord]) {
         self.catalog = catalog
         self.dateStart = dateStart
         self.filerecords = filerecords
-        burstWinnerOverrides = nil
     }
 }
 

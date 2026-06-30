@@ -7,6 +7,15 @@ actor MemoryImageCache {
     private struct ThumbnailCacheKey: Hashable {
         let url: URL
         let maxPixelSize: Int
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(url)
+            hasher.combine(maxPixelSize)
+        }
+
+        static func == (lhs: ThumbnailCacheKey, rhs: ThumbnailCacheKey) -> Bool {
+            lhs.url == rhs.url && lhs.maxPixelSize == rhs.maxPixelSize
+        }
     }
 
     private var thumbnailCache: [ThumbnailCacheKey: CachedNSImage] = [:]
@@ -40,12 +49,6 @@ actor MemoryImageCache {
         thumbnailCost += cached.cost
         markThumbnailAsRecentlyUsed(key)
         trimThumbnailCache()
-    }
-
-    func clear() {
-        thumbnailCache.removeAll()
-        thumbnailAccessOrder.removeAll()
-        thumbnailCost = 0
     }
 
     private func markThumbnailAsRecentlyUsed(_ key: ThumbnailCacheKey) {

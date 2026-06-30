@@ -18,19 +18,6 @@ enum RatedCopyFilter: Hashable, Identifiable {
         }
     }
 
-    var title: String {
-        switch self {
-        case .positive:
-            "Rated 2-5"
-
-        case let .rating(rating):
-            "Rated \(rating)"
-
-        case .rejected:
-            "Rejected"
-        }
-    }
-
     func includes(_ rating: Int) -> Bool {
         switch self {
         case .positive:

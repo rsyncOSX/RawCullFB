@@ -52,14 +52,6 @@ final class FileBrowserViewModel {
         files.filter { selectedFileIDs.contains($0.id) }
     }
 
-    var selectedFileCount: Int {
-        selectedFileIDs.count
-    }
-
-    var canCopySelectedFiles: Bool {
-        !selectedFileIDs.isEmpty && !copyProgress.isActive
-    }
-
     var rejectedFileCount: Int {
         ratedFiles(matching: .rejected).count
     }
@@ -227,10 +219,6 @@ final class FileBrowserViewModel {
         }
     }
 
-    func selectFile(_ file: BrowserFileItem) {
-        selectOnlyFile(file)
-    }
-
     func selectOnlyFile(_ file: BrowserFileItem) {
         selectedFileID = file.id
         selectedFileIDs = [file.id]
@@ -372,14 +360,6 @@ final class FileBrowserViewModel {
         }
     }
 
-    func updateRating(for file: BrowserFileItem, rating: Int) {
-        guard settings.enableRatingPins else { return }
-        setRating(rating, for: file)
-        Task {
-            await saveRatings()
-        }
-    }
-
     func updateSelectedFilesRatingAndAdvance(_ rating: Int) -> Bool {
         guard settings.enableRatingPins else { return false }
         let filesToRate = selectedFiles.isEmpty ? selectedFile.map { [$0] } ?? [] : selectedFiles
@@ -399,10 +379,6 @@ final class FileBrowserViewModel {
     private func setRating(_ rating: Int, for file: BrowserFileItem) {
         guard let key = ratingKey(for: file) else { return }
         fileRatings[key] = rating
-    }
-
-    func copySelectedFiles(to destinationURL: URL) async {
-        await copyFiles(selectedFiles, to: destinationURL)
     }
 
     func copyRatedFiles(to destinationURL: URL, filter: RatedCopyFilter) async {

@@ -9,22 +9,46 @@ import Foundation
 import Observation
 import OSLog
 
+enum MemoryPressureLevel {
+    case normal, warning, critical
+
+    var label: String {
+        switch self {
+        case .normal: "Normal"
+        case .warning: "Warning"
+        case .critical: "Critical"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .normal: "checkmark.circle.fill"
+        case .warning: "exclamationmark.triangle.fill"
+        case .critical: "xmark.octagon.fill"
+        }
+    }
+}
+
 @Observable @MainActor
 final class MemoryViewModel {
     var totalMemory: UInt64 = 0
     var usedMemory: UInt64 = 0
     var appMemory: UInt64 = 0
     var memoryPressureThreshold: UInt64 = 0
+    var systemPressureLevel: MemoryPressureLevel = .normal
 
     private let pressureThresholdFactor: Double
+    @ObservationIgnored private var memoryPressureSource: DispatchSourceMemoryPressure?
 
     init(
         pressureThresholdFactor: Double = 0.85,
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
+        startMemoryPressureMonitoring()
     }
 
     deinit {
+        memoryPressureSource?.cancel()
         // Logger.process.debugMessageOnly("MemoryViewModel: deinitialized")
     }
 
@@ -43,11 +67,6 @@ final class MemoryViewModel {
     var appMemoryPercentage: Double {
         guard usedMemory > 0 else { return 0 }
         return Double(appMemory) / Double(usedMemory) * 100
-    }
-
-    /// Reads directly from SharedMemoryCache — no second DispatchSource needed.
-    var systemPressureLevel: SharedMemoryCache.MemoryPressureLevel {
-        SharedMemoryCache.shared.currentPressureLevel
     }
 
     // MARK: - Update
@@ -119,6 +138,31 @@ final class MemoryViewModel {
 
     private nonisolated func calculateMemoryPressureThreshold(total: UInt64) -> UInt64 {
         UInt64(Double(total) * pressureThresholdFactor)
+    }
+
+    private func startMemoryPressureMonitoring() {
+        guard memoryPressureSource == nil else { return }
+
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global(qos: .utility))
+        source.setEventHandler { [weak self, weak source] in
+            guard let source else { return }
+            let event = source.data
+            Task { @MainActor [weak self] in
+                self?.handleMemoryPressureEvent(event)
+            }
+        }
+        source.resume()
+        memoryPressureSource = source
+    }
+
+    private func handleMemoryPressureEvent(_ event: DispatchSource.MemoryPressureEvent) {
+        if event.contains(.critical) {
+            systemPressureLevel = .critical
+        } else if event.contains(.warning) {
+            systemPressureLevel = .warning
+        } else if event.contains(.normal) {
+            systemPressureLevel = .normal
+        }
     }
 
     // MARK: - Formatting

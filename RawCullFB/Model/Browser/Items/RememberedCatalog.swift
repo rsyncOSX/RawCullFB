@@ -5,8 +5,6 @@ struct RememberedCatalog: Codable, Identifiable {
         path
     }
 
-    let name: String
     let path: String
-    let lastBrowsedAt: Date
     let bookmarkData: Data
 }

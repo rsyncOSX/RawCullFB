@@ -8,8 +8,6 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var settingsLoaded = false
-
     var body: some View {
         Group {
             TabView {

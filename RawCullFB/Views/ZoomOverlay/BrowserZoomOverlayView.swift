@@ -297,12 +297,6 @@ struct BrowserZoomOverlayView: View {
         }
     }
 
-    private func toggleExifData() {
-        withAnimation(.snappy) {
-            viewModel.isZoomMetadataCollapsed.toggle()
-        }
-    }
-
     private func decreaseZoom() {
         withAnimation(.spring()) {
             viewModel.zoomScale = max(viewModel.zoomScale - 0.25, 0.5)

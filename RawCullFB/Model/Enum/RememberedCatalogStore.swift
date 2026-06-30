@@ -25,9 +25,7 @@ enum RememberedCatalogStore {
         ) else { return nil }
 
         return RememberedCatalog(
-            name: url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent,
             path: url.path,
-            lastBrowsedAt: Date(),
             bookmarkData: bookmarkData,
         )
     }

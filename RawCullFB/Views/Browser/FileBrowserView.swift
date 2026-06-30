@@ -2,13 +2,12 @@ import SwiftUI
 
 struct FileBrowserView: View {
     @Bindable var viewModel: FileBrowserViewModel
-    @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State private var folderPickerPurpose: FolderPickerPurpose?
     @State private var isShowingDeleteRejectedConfirmation = false
 
     var body: some View {
         ZStack {
-            NavigationSplitView(columnVisibility: $columnVisibility) {
+            NavigationSplitView {
                 BrowserSidebarView(viewModel: viewModel)
             } detail: {
                 BrowserGridView(viewModel: viewModel)

@@ -8,6 +8,15 @@ actor RawImageLoader {
     private struct ImageTaskKey: Hashable {
         let url: URL
         let maxPixelSize: Int
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(url)
+            hasher.combine(maxPixelSize)
+        }
+
+        static func == (lhs: ImageTaskKey, rhs: ImageTaskKey) -> Bool {
+            lhs.url == rhs.url && lhs.maxPixelSize == rhs.maxPixelSize
+        }
     }
 
     private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
@@ -37,7 +46,7 @@ actor RawImageLoader {
     func discoverSupportedFiles(at folderURL: URL) async -> [BrowserFileItem] {
         await Task.detached(priority: .utility) {
             let supported = RawFormatRegistry.allExtensions.union(SupportedFileType.renderedImageExtensions)
-            let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey]
+            let keys: Set<URLResourceKey> = [.isRegularFileKey, .isHiddenKey]
             guard let children = try? FileManager.default.contentsOfDirectory(
                 at: folderURL,
                 includingPropertiesForKeys: Array(keys),
@@ -48,11 +57,7 @@ actor RawImageLoader {
                 guard supported.contains(url.pathExtension.lowercased()) else { return nil }
                 let values = try? url.resourceValues(forKeys: keys)
                 guard values?.isRegularFile == true, values?.isHidden != true else { return nil }
-                return BrowserFileItem(
-                    url: url,
-                    byteCount: Int64(values?.fileSize ?? 0),
-                    modifiedDate: values?.contentModificationDate,
-                )
+                return BrowserFileItem(url: url)
             }
             let renderedImageFiles = files.filter { SupportedFileType.isRenderedImage($0.url) }
             return (renderedImageFiles.isEmpty ? files : renderedImageFiles)
@@ -130,38 +135,6 @@ actor RawImageLoader {
         thumbnailTasks[taskKey] = task
         let image = await task.value
         thumbnailTasks[taskKey] = nil
-        return image
-    }
-
-    func extractedJPG(for url: URL) async -> CGImage? {
-        let taskKey = ImageTaskKey(url: url, maxPixelSize: 0)
-        if let existing = extractedJPGTasks[taskKey] {
-            return await existing.value
-        }
-
-        let task = Task<CGImage?, Never>(priority: .userInitiated) {
-            if SupportedFileType.isJPEG(url) {
-                guard let image = await Self.loadUnmodifiedImage(from: url) else { return nil }
-                return image
-            }
-
-            if SupportedFileType.isRenderedImage(url) {
-                guard let image = await Self.loadOrientationNormalizedImage(from: url) else { return nil }
-                return image
-            }
-
-            let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
-            if let sidecarImage = await Self.loadOrientationNormalizedImage(from: sidecarURL) {
-                return sidecarImage
-            }
-
-            guard let extracted = await Self.extractOrientationNormalizedImage(from: url) else { return nil }
-            return extracted
-        }
-
-        extractedJPGTasks[taskKey] = task
-        let image = await task.value
-        extractedJPGTasks[taskKey] = nil
         return image
     }
 
@@ -249,20 +222,6 @@ actor RawImageLoader {
         return info
     }
 
-    private nonisolated static func loadUnmodifiedImage(from url: URL) async -> CGImage? {
-        await Task.detached(priority: .userInitiated) {
-            let options = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, options) else { return nil }
-            return CGImageSourceCreateImageAtIndex(source, 0, options)
-        }.value
-    }
-
-    private nonisolated static func loadOrientationNormalizedImage(from url: URL) async -> CGImage? {
-        await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: url)
-        }.value
-    }
-
     private nonisolated static func loadPreviewImage(from url: URL, maxPixelSize: Int) async -> CGImage? {
         await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadPreview(from: url, maxPixelSize: maxPixelSize)
@@ -279,20 +238,6 @@ actor RawImageLoader {
         await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadEmbeddedThumbnail(from: url, maxPixelSize: maxPixelSize)
         }.value
-    }
-
-    private nonisolated static func extractOrientationNormalizedImage(from url: URL) async -> CGImage? {
-        if let sonyPreview = await Task.detached(priority: .userInitiated, operation: {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
-        }).value {
-            return sonyPreview
-        }
-
-        guard let format = RawFormatRegistry.format(for: url),
-              let extracted = await format.extractFullJPEG(from: url, fullSize: false)
-        else { return nil }
-
-        return OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
     }
 
     private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {

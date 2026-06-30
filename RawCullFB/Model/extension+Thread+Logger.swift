@@ -9,14 +9,6 @@ import Foundation
 import OSLog
 
 public extension Thread {
-    static var isMain: Bool {
-        isMainThread
-    }
-
-    static var currentThread: Thread {
-        Thread.current
-    }
-
     nonisolated static func checkIsMainThread() -> Bool {
         Thread.isMainThread
     }
@@ -46,12 +38,5 @@ extension Logger {
                 debug("\(message) NOT on main thread, currently on \(Thread.current)")
             }
         #endif
-    }
-}
-
-extension Task where Success == Never, Failure == Never {
-    static func sleep(seconds: Double) async throws {
-        let duration = UInt64(seconds * 1_000_000_000)
-        try await Task.sleep(for: .nanoseconds(duration))
     }
 }
