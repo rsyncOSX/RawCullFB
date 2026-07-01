@@ -21,8 +21,9 @@ actor DecodeConcurrencyLimiter {
 
     /// Runs `work` once a concurrency slot is available, releasing the slot
     /// when `work` completes (or is cancelled). Returns `nil` if the calling
-    /// task is cancelled before a slot is granted.
-    func run<T>(_ work: @Sendable () async -> T) async -> T? {
+    /// task is cancelled before a slot is granted, or if `work` itself
+    /// returns `nil`.
+    func run<T>(_ work: @Sendable () async -> T?) async -> T? {
         guard await acquireSlot() == .granted else { return nil }
         defer { releaseSlot() }
         guard !Task.isCancelled else { return nil }
