@@ -2,7 +2,7 @@ import Foundation
 
 struct BrowserSettings: Codable {
     nonisolated static let defaultMemoryCacheSizeMB = 768
-    nonisolated static let defaultGridCacheSizeMB = 1024
+    nonisolated static let defaultGridCacheSizeMB = 768
     nonisolated static let defaultMaxCachedExtractedJPGs = 4
     private nonisolated static let legacyDefaultGridCacheSizeMB = 256
 

@@ -20,10 +20,14 @@ actor RawImageLoader {
     }
 
     private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
-    private var extractedJPGTasks: [ImageTaskKey: Task<CGImage?, Never>] = [:]
+    private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
     private var exifInfoTasks: [URL: Task<BrowserExifInfo?, Never>] = [:]
 
     private init() {}
+
+    private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
+        FullSizeJPGDiskCache.shared
+    }
 
     func discoverFolders(at folderURL: URL) async -> [BrowserFolderItem] {
         await Task.detached(priority: .utility) {
@@ -67,7 +71,7 @@ actor RawImageLoader {
 
     func preloadThumbnails(for files: [BrowserFileItem], targetSize: Int = 200) async {
         await withTaskGroup(of: Void.self) { group in
-            let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount * 2)
+            let maxConcurrent = 2
 
             for (index, file) in files.enumerated() {
                 if Task.isCancelled {
@@ -99,6 +103,18 @@ actor RawImageLoader {
         }
 
         let task = Task<NSImage?, Never>(priority: .utility) {
+            if let diskImage = await ThumbnailDiskCache.shared.load(
+                for: url,
+                maxPixelSize: boundedTargetSize,
+            ) {
+                await MemoryImageCache.shared.storeThumbnail(
+                    diskImage,
+                    for: url,
+                    maxPixelSize: boundedTargetSize,
+                )
+                return diskImage
+            }
+
             if SupportedFileType.isRenderedImage(url) {
                 guard let cgImage = OrientationNormalizedImageLoader.loadThumbnail(
                     from: url,
@@ -106,6 +122,13 @@ actor RawImageLoader {
                 ) else { return nil }
                 let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
                 await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
+                if let jpegData = ThumbnailDiskCache.jpegData(from: cgImage) {
+                    await ThumbnailDiskCache.shared.save(
+                        jpegData,
+                        for: url,
+                        maxPixelSize: boundedTargetSize,
+                    )
+                }
                 return image
             }
 
@@ -129,6 +152,13 @@ actor RawImageLoader {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
+            if let jpegData = ThumbnailDiskCache.jpegData(from: cgImage) {
+                await ThumbnailDiskCache.shared.save(
+                    jpegData,
+                    for: url,
+                    maxPixelSize: boundedTargetSize,
+                )
+            }
             return image
         }
 
@@ -138,73 +168,71 @@ actor RawImageLoader {
         return image
     }
 
-    func previewImage(for url: URL, maxPixelSize: Int) async -> CGImage? {
-        let boundedMaxPixelSize = max(maxPixelSize, 1)
-        let taskKey = ImageTaskKey(url: url, maxPixelSize: boundedMaxPixelSize)
-
-        if let existing = extractedJPGTasks[taskKey] {
+    func previewImage(for url: URL, maxPixelSize _: Int) async -> CGImage? {
+        if let existing = extractedJPGTasks[url] {
             return await existing.value
         }
 
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             if SupportedFileType.isRenderedImage(url) {
-                guard let image = await Self.loadPreviewImage(from: url, maxPixelSize: boundedMaxPixelSize) else {
+                guard let image = await Self.loadCGImage(from: url) else {
                     return nil
                 }
                 return image
             }
 
-            let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
-            if let sidecarImage = await Self.loadPreviewImage(from: sidecarURL, maxPixelSize: boundedMaxPixelSize) {
-                return sidecarImage
-            }
-
-            if let cachedImage = await ZoomPreviewDiskCache.shared.cachedImage(
-                for: url,
-                maxPixelSize: boundedMaxPixelSize,
-            ) {
-                return cachedImage
-            }
-
-            if let sonyPreview = await Self.loadSonyEmbeddedPreview(from: url, maxPixelSize: boundedMaxPixelSize) {
-                await ZoomPreviewDiskCache.shared.store(
-                    sonyPreview,
-                    for: url,
-                    maxPixelSize: boundedMaxPixelSize,
-                )
-                return sonyPreview
-            }
-
-            if let embeddedThumbnail = await Self.loadEmbeddedThumbnail(from: url, maxPixelSize: boundedMaxPixelSize) {
-                await ZoomPreviewDiskCache.shared.store(
-                    embeddedThumbnail,
-                    for: url,
-                    maxPixelSize: boundedMaxPixelSize,
-                )
-                return embeddedThumbnail
-            }
-
-            guard let format = RawFormatRegistry.format(for: url),
-                  let extracted = try? await format.extractThumbnail(
-                      from: url,
-                      maxDimension: CGFloat(boundedMaxPixelSize),
-                      qualityCost: 4,
-                  )
-            else { return nil }
-
-            let image = OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
-            await ZoomPreviewDiskCache.shared.store(
-                image,
-                for: url,
-                maxPixelSize: boundedMaxPixelSize,
-            )
-            return image
+            return await Self.loadExtractedJPGPreview(for: url)
         }
 
-        extractedJPGTasks[taskKey] = task
+        extractedJPGTasks[url] = task
         let image = await task.value
-        extractedJPGTasks[taskKey] = nil
+        extractedJPGTasks[url] = nil
         return image
+    }
+
+    static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
+        let sidecarJPGURL = rawURL
+            .deletingPathExtension()
+            .appendingPathExtension(SupportedFileType.jpg.rawValue)
+
+        let sidecarImage = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
+        }.value
+
+        guard !Task.isCancelled else { return nil }
+        if let sidecarImage {
+            return sidecarImage
+        }
+
+        if let cached = await fullSizeCache.load(for: rawURL) {
+            guard !Task.isCancelled else { return nil }
+            return cached
+        }
+
+        guard !Task.isCancelled,
+              let format = RawFormatRegistry.format(for: rawURL)
+        else { return nil }
+
+        let orientedPreview = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
+        }.value
+        let extracted: CGImage? = if let orientedPreview {
+            orientedPreview
+        } else {
+            if let image = await format.extractFullJPEG(from: rawURL, fullSize: false) {
+                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
+            } else {
+                nil
+            }
+        }
+        guard !Task.isCancelled else { return nil }
+
+        if let extracted,
+           let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+            await fullSizeCache.save(jpegData, for: rawURL)
+        }
+
+        return extracted
     }
 
     func exifInfo(for url: URL) async -> BrowserExifInfo? {
@@ -222,21 +250,9 @@ actor RawImageLoader {
         return info
     }
 
-    private nonisolated static func loadPreviewImage(from url: URL, maxPixelSize: Int) async -> CGImage? {
+    private nonisolated static func loadCGImage(from url: URL) async -> CGImage? {
         await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadPreview(from: url, maxPixelSize: maxPixelSize)
-        }.value
-    }
-
-    private nonisolated static func loadSonyEmbeddedPreview(from url: URL, maxPixelSize: Int) async -> CGImage? {
-        await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url, maxPixelSize: maxPixelSize)
-        }.value
-    }
-
-    private nonisolated static func loadEmbeddedThumbnail(from url: URL, maxPixelSize: Int) async -> CGImage? {
-        await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadEmbeddedThumbnail(from: url, maxPixelSize: maxPixelSize)
+            OrientationNormalizedImageLoader.loadCGImage(from: url)
         }.value
     }
 

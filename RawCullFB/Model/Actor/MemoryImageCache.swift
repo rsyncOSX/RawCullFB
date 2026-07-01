@@ -4,69 +4,29 @@ import Foundation
 actor MemoryImageCache {
     static let shared = MemoryImageCache()
 
-    private struct ThumbnailCacheKey: Hashable {
-        let url: URL
-        let maxPixelSize: Int
+    private let thumbnailCache = NSCache<NSString, CachedNSImage>()
 
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(url)
-            hasher.combine(maxPixelSize)
-        }
-
-        static func == (lhs: ThumbnailCacheKey, rhs: ThumbnailCacheKey) -> Bool {
-            lhs.url == rhs.url && lhs.maxPixelSize == rhs.maxPixelSize
-        }
+    private init() {
+        thumbnailCache.totalCostLimit = BrowserSettings.defaultGridCacheSizeMB * 1024 * 1024
+        thumbnailCache.countLimit = 3000
     }
 
-    private var thumbnailCache: [ThumbnailCacheKey: CachedNSImage] = [:]
-    private var thumbnailAccessOrder: [ThumbnailCacheKey] = []
-    private var thumbnailCostLimit = BrowserSettings.defaultGridCacheSizeMB * 1024 * 1024
-    private var thumbnailCost = 0
-
-    private init() {}
-
     func apply(settings: BrowserSettings) {
-        thumbnailCostLimit = max(0, settings.gridCacheSizeMB) * 1024 * 1024
-        trimThumbnailCache()
+        thumbnailCache.totalCostLimit = max(0, settings.gridCacheSizeMB) * 1024 * 1024
     }
 
     func thumbnail(for url: URL, maxPixelSize: Int) -> NSImage? {
         let key = thumbnailCacheKey(for: url, maxPixelSize: maxPixelSize)
-        guard let cached = thumbnailCache[key] else { return nil }
-        markThumbnailAsRecentlyUsed(key)
-        return cached.image
+        return thumbnailCache.object(forKey: key)?.image
     }
 
     func storeThumbnail(_ image: NSImage, for url: URL, maxPixelSize: Int) {
-        guard thumbnailCostLimit > 0 else { return }
-
         let key = thumbnailCacheKey(for: url, maxPixelSize: maxPixelSize)
         let cached = CachedNSImage(image: image)
-        if let previous = thumbnailCache[key] {
-            thumbnailCost -= previous.cost
-        }
-        thumbnailCache[key] = cached
-        thumbnailCost += cached.cost
-        markThumbnailAsRecentlyUsed(key)
-        trimThumbnailCache()
+        thumbnailCache.setObject(cached, forKey: key, cost: cached.cost)
     }
 
-    private func markThumbnailAsRecentlyUsed(_ key: ThumbnailCacheKey) {
-        thumbnailAccessOrder.removeAll { $0 == key }
-        thumbnailAccessOrder.append(key)
-    }
-
-    private func trimThumbnailCache() {
-        while thumbnailCost > thumbnailCostLimit {
-            guard let oldestKey = thumbnailAccessOrder.first else { return }
-            thumbnailAccessOrder.removeFirst()
-            if let removed = thumbnailCache.removeValue(forKey: oldestKey) {
-                thumbnailCost -= removed.cost
-            }
-        }
-    }
-
-    private func thumbnailCacheKey(for url: URL, maxPixelSize: Int) -> ThumbnailCacheKey {
-        ThumbnailCacheKey(url: url, maxPixelSize: max(maxPixelSize, 1))
+    private func thumbnailCacheKey(for url: URL, maxPixelSize: Int) -> NSString {
+        "\(url.standardized.path)|\(max(maxPixelSize, 1))" as NSString
     }
 }
