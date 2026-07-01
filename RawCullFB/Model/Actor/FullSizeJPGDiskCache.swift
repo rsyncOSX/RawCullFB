@@ -42,14 +42,6 @@ actor FullSizeJPGDiskCache {
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
-    func contains(for sourceURL: URL, variant: Variant = .embeddedJPG) async -> Bool {
-        let fileURL = cacheURL(for: sourceURL, variant: variant)
-
-        return await Task.detached(priority: .utility) {
-            FileManager.default.fileExists(atPath: fileURL.path)
-        }.value
-    }
-
     /// Loads a cached full-size JPEG as a `CGImage`.
     /// Uses `kCGImageSourceShouldCache: false` and `CGImageSourceRemoveCacheAtIndex`
     /// to prevent ImageIO from retaining the decoded full-resolution pixel buffer
@@ -89,63 +81,5 @@ actor FullSizeJPGDiskCache {
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return mutableData as Data
-    }
-
-    func getDiskCacheSize() async -> Int {
-        let directory = cacheDirectory
-
-        return await Task.detached(priority: .utility) {
-            let fileManager = FileManager.default
-            let resourceKeys: [URLResourceKey] = [.totalFileAllocatedSizeKey]
-
-            guard let urls = try? fileManager.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles,
-            ) else { return 0 }
-
-            var totalSize = 0
-            for fileURL in urls {
-                do {
-                    let values = try fileURL.resourceValues(forKeys: Set(resourceKeys))
-                    if let size = values.totalFileAllocatedSize {
-                        totalSize += size
-                    }
-                } catch {
-                    Logger.process.warning("FullSizeJPGDiskCache: Failed to get size for \(fileURL.path): \(error)")
-                }
-            }
-            return totalSize
-        }.value
-    }
-
-    func pruneCache(maxAgeInDays: Int = 30) async {
-        let directory = cacheDirectory
-
-        await Task.detached(priority: .utility) {
-            let fileManager = FileManager.default
-            let resourceKeys: [URLResourceKey] = [.contentModificationDateKey, .totalFileAllocatedSizeKey]
-
-            guard let urls = try? fileManager.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles,
-            ) else { return }
-
-            guard let expirationDate = Calendar.current.date(byAdding: .day, value: -maxAgeInDays, to: Date()) else {
-                return
-            }
-
-            for fileURL in urls {
-                do {
-                    let values = try fileURL.resourceValues(forKeys: Set(resourceKeys))
-                    if let date = values.contentModificationDate, date < expirationDate {
-                        try fileManager.removeItem(at: fileURL)
-                    }
-                } catch {
-                    Logger.process.warning("FullSizeJPGDiskCache: Failed to delete \(fileURL.path): \(error)")
-                }
-            }
-        }.value
     }
 }

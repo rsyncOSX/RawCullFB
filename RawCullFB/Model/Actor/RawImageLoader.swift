@@ -77,27 +77,6 @@ actor RawImageLoader {
         }.value
     }
 
-    func preloadThumbnails(for files: [BrowserFileItem], targetSize: Int = 200) async {
-        await withTaskGroup(of: Void.self) { group in
-            let maxConcurrent = 2
-
-            for (index, file) in files.enumerated() {
-                if Task.isCancelled {
-                    group.cancelAll()
-                    break
-                }
-                if index >= maxConcurrent {
-                    await group.next()
-                }
-                group.addTask {
-                    _ = await self.thumbnail(for: file.url, targetSize: targetSize)
-                }
-            }
-
-            await group.waitForAll()
-        }
-    }
-
     func thumbnail(for url: URL, targetSize: Int = 200) async -> NSImage? {
         let boundedTargetSize = max(targetSize, 1)
         let taskKey = ImageTaskKey(url: url, maxPixelSize: boundedTargetSize)
@@ -154,7 +133,7 @@ actor RawImageLoader {
                 else { return nil }
 
                 return OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
-            } ?? nil
+            }
 
             guard let cgImage, !Task.isCancelled else { return nil }
 
@@ -199,7 +178,7 @@ actor RawImageLoader {
                 return await limiter.run {
                     guard !Task.isCancelled else { return nil }
                     return await Self.loadCGImage(from: url)
-                } ?? nil
+                }
             }
 
             return await Self.loadExtractedJPGPreview(for: url, limiter: limiter)
@@ -264,7 +243,7 @@ actor RawImageLoader {
                 return nil
             }
             return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
-        } ?? nil
+        }
 
         guard !Task.isCancelled else { return nil }
 
