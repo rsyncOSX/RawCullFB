@@ -287,6 +287,9 @@ final class FileBrowserViewModel {
         zoomExifInfo = nil
         isZoomExifInfoLoaded = false
         zoomLaunchContext = .default
+        // Abandon any in-flight full-size decode: it's no longer needed and
+        // should not keep consuming memory in the background.
+        Task { await RawImageLoader.shared.cancelPreview() }
     }
 
     func resetZoomInterfaceState() {

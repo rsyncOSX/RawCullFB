@@ -23,6 +23,14 @@ actor RawImageLoader {
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
     private var exifInfoTasks: [URL: Task<BrowserExifInfo?, Never>] = [:]
 
+    /// Bounds how many expensive full-size RAW decodes/demosaics can run at
+    /// once. Without this, rapid zoom navigation could otherwise pile up
+    /// several uncancelled full-resolution decodes concurrently.
+    private let fullSizeDecodeLimiter = DecodeConcurrencyLimiter(maxConcurrent: 2)
+    /// Bounds concurrent thumbnail decodes so fast grid scrolling can't spawn
+    /// unbounded RAW decode work.
+    private let thumbnailDecodeLimiter = DecodeConcurrencyLimiter(maxConcurrent: 6)
+
     private init() {}
 
     private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
@@ -102,6 +110,7 @@ actor RawImageLoader {
             return await existing.value
         }
 
+        let limiter = thumbnailDecodeLimiter
         let task = Task<NSImage?, Never>(priority: .utility) {
             if let diskImage = await ThumbnailDiskCache.shared.load(
                 for: url,
@@ -115,40 +124,39 @@ actor RawImageLoader {
                 return diskImage
             }
 
-            if SupportedFileType.isRenderedImage(url) {
-                guard let cgImage = OrientationNormalizedImageLoader.loadThumbnail(
-                    from: url,
-                    maxPixelSize: boundedTargetSize,
-                ) else { return nil }
-                let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-                await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
-                if let jpegData = ThumbnailDiskCache.jpegData(from: cgImage) {
-                    await ThumbnailDiskCache.shared.save(
-                        jpegData,
-                        for: url,
+            guard !Task.isCancelled else { return nil }
+
+            // Bound concurrent decodes: fast grid scrolling can otherwise
+            // trigger many simultaneous RAW/embedded-thumbnail decodes.
+            let cgImage: CGImage? = await limiter.run {
+                guard !Task.isCancelled else { return nil }
+
+                if SupportedFileType.isRenderedImage(url) {
+                    return OrientationNormalizedImageLoader.loadThumbnail(
+                        from: url,
                         maxPixelSize: boundedTargetSize,
                     )
                 }
-                return image
-            }
 
-            let cgImage: CGImage? = if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
-                from: url,
-                maxPixelSize: boundedTargetSize,
-            ) {
-                embeddedThumbnail
-            } else if let format = RawFormatRegistry.format(for: url),
+                if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
+                    from: url,
+                    maxPixelSize: boundedTargetSize,
+                ) {
+                    return embeddedThumbnail
+                }
+
+                guard let format = RawFormatRegistry.format(for: url),
                       let extracted = try? await format.extractThumbnail(
                           from: url,
                           maxDimension: CGFloat(boundedTargetSize),
                           qualityCost: 4,
-                      ) {
-                OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
-            } else {
-                nil
-            }
+                      )
+                else { return nil }
 
-            guard let cgImage else { return nil }
+                return OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
+            } ?? nil
+
+            guard let cgImage, !Task.isCancelled else { return nil }
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
@@ -173,15 +181,28 @@ actor RawImageLoader {
             return await existing.value
         }
 
+        // Only one full-size zoom preview is ever meaningful at a time. If a
+        // request for a different URL is still pending (e.g. the user is
+        // navigating quickly through photos), cancel it outright instead of
+        // letting an expensive, no-longer-needed decode run to completion in
+        // the background.
+        for (staleURL, staleTask) in extractedJPGTasks where staleURL != url {
+            staleTask.cancel()
+            extractedJPGTasks[staleURL] = nil
+        }
+
+        let limiter = fullSizeDecodeLimiter
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
+            guard !Task.isCancelled else { return nil }
+
             if SupportedFileType.isRenderedImage(url) {
-                guard let image = await Self.loadCGImage(from: url) else {
-                    return nil
-                }
-                return image
+                return await limiter.run {
+                    guard !Task.isCancelled else { return nil }
+                    return await Self.loadCGImage(from: url)
+                } ?? nil
             }
 
-            return await Self.loadExtractedJPGPreview(for: url)
+            return await Self.loadExtractedJPGPreview(for: url, limiter: limiter)
         }
 
         extractedJPGTasks[url] = task
@@ -190,7 +211,17 @@ actor RawImageLoader {
         return image
     }
 
-    static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
+    /// Cancels any in-flight full-size preview extraction(s). Call this when
+    /// the zoom overlay is dismissed so an abandoned decode doesn't keep
+    /// running (and holding memory) in the background.
+    func cancelPreview() {
+        for (_, task) in extractedJPGTasks {
+            task.cancel()
+        }
+        extractedJPGTasks.removeAll()
+    }
+
+    static func loadExtractedJPGPreview(for rawURL: URL, limiter: DecodeConcurrencyLimiter) async -> CGImage? {
         let sidecarJPGURL = rawURL
             .deletingPathExtension()
             .appendingPathExtension(SupportedFileType.jpg.rawValue)
@@ -213,18 +244,28 @@ actor RawImageLoader {
               let format = RawFormatRegistry.format(for: rawURL)
         else { return nil }
 
-        let orientedPreview = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
-        }.value
-        let extracted: CGImage? = if let orientedPreview {
-            orientedPreview
-        } else {
-            if let image = await format.extractFullJPEG(from: rawURL, fullSize: false) {
-                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
-            } else {
-                nil
+        // The expensive step: decode the embedded preview or demosaic the
+        // full RAW. Bound via the shared limiter so a burst of navigation
+        // requests can't pile up unbounded full-resolution decodes.
+        let extracted: CGImage? = await limiter.run {
+            guard !Task.isCancelled else { return nil }
+
+            let orientedPreview = await Task.detached(priority: .userInitiated) {
+                OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
+            }.value
+
+            guard !Task.isCancelled else { return nil }
+
+            if let orientedPreview {
+                return orientedPreview
             }
-        }
+
+            guard let image = await format.extractFullJPEG(from: rawURL, fullSize: false) else {
+                return nil
+            }
+            return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
+        } ?? nil
+
         guard !Task.isCancelled else { return nil }
 
         if let extracted,
