@@ -2,7 +2,7 @@ import RawParserKit
 import SwiftUI
 
 struct FocusPointMarker: View {
-    let focusPoint: BrowserFocusPoint
+    let focusPoint: RawFocusPoint
     let imageSize: CGSize
     let containerSize: CGSize
 

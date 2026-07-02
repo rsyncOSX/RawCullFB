@@ -83,9 +83,9 @@ actor RawImageLoader {
                 return diskImage
             }
 
-            guard let image = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+            guard let image = await RawParserKit.RawImageLoader.shared.thumbnail(
                 for: url,
-                targetSize: boundedTargetSize,
+                maxPixelSize: boundedTargetSize,
             ), !Task.isCancelled else { return nil }
 
             await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
@@ -128,7 +128,7 @@ actor RawImageLoader {
                 return cached
             }
 
-            let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url)
+            let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: url)
             guard !Task.isCancelled else { return nil }
 
             if let extracted,
@@ -155,8 +155,8 @@ actor RawImageLoader {
         extractedJPGTasks.removeAll()
     }
 
-    func exifInfo(for url: URL) async -> BrowserExifInfo? {
-        await RawParserKit.RawImageLoader.shared.exifInfo(for: url)
+    func metadata(for url: URL) async -> RawImageMetadata? {
+        await RawParserKit.RawImageLoader.shared.metadata(for: url)
     }
 
     private nonisolated static func loadCGImage(from url: URL) async -> CGImage? {
