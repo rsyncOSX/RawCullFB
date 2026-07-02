@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ZoomMetadataPanel: View {
     let fileName: String?
-    let exifInfo: BrowserExifInfo?
+    let exifInfo: RawImageMetadata?
     let image: CGImage?
     @Binding var isCollapsed: Bool
 

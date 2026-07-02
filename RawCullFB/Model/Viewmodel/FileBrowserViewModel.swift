@@ -24,7 +24,7 @@ final class FileBrowserViewModel {
     var deleteFailure: CopyFailure?
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
-    var zoomExifInfo: BrowserExifInfo?
+    var zoomExifInfo: RawImageMetadata?
     var isZoomExifInfoLoaded = false
     var zoomScale: CGFloat = 1.0
     var zoomOffset: CGSize = .zero
@@ -271,7 +271,7 @@ final class FileBrowserViewModel {
                 for: selectedFile.url,
                 maxPixelSize: previewSize,
             )
-            async let exifInfo = RawImageLoader.shared.exifInfo(for: selectedFile.url)
+            async let exifInfo = RawImageLoader.shared.metadata(for: selectedFile.url)
             let (loadedImage, loadedExifInfo) = await (image, exifInfo)
             guard !Task.isCancelled else { return }
             zoomImage = loadedImage
