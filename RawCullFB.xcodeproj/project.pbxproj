@@ -10,8 +10,8 @@
 		E90ED2132FE07ABB0034DF74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E90ED2082FE07ABB0034DF74 /* Assets.xcassets */; };
 		E90ED21F2FE07AF50034DF74 /* RawCullFBicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */; };
 		E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */; };
+		E9BCDDC92FF6962A004A4A95 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9BCDDC82FF6962A004A4A95 /* RawParserKit */; };
 		FB0000010000000000000001 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000011 /* RawCullCore */; };
-		FB0000010000000000000002 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000012 /* RawParserKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,7 +36,7 @@
 			files = (
 				E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */,
 				FB0000010000000000000001 /* RawCullCore in Frameworks */,
-				FB0000010000000000000002 /* RawParserKit in Frameworks */,
+				E9BCDDC92FF6962A004A4A95 /* RawParserKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,8 +83,8 @@
 			name = RawCullFB;
 			packageProductDependencies = (
 				FB0000010000000000000011 /* RawCullCore */,
-				FB0000010000000000000012 /* RawParserKit */,
 				E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */,
+				E9BCDDC82FF6962A004A4A95 /* RawParserKit */,
 			);
 			productName = RawCullFB;
 			productReference = FB0000010000000000000003 /* RawCullFB.app */;
@@ -116,8 +116,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
-				FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */,
 				E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
+				E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FB0000010000000000000008 /* Products */;
@@ -407,13 +407,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RawParserKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -421,6 +414,14 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.0;
+			};
+		};
+		E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.0;
 			};
 		};
 		FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
@@ -439,15 +440,15 @@
 			package = E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
 			productName = DecodeEncodeGeneric;
 		};
+		E9BCDDC82FF6962A004A4A95 /* RawParserKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			productName = RawParserKit;
+		};
 		FB0000010000000000000011 /* RawCullCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */;
 			productName = RawCullCore;
-		};
-		FB0000010000000000000012 /* RawParserKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */;
-			productName = RawParserKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
