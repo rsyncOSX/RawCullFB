@@ -1,5 +1,4 @@
 import AppKit
-import ImageIO
 import RawParserKit
 
 actor RawImageLoader {
@@ -8,28 +7,10 @@ actor RawImageLoader {
     private struct ImageTaskKey: Hashable {
         let url: URL
         let maxPixelSize: Int
-
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(url)
-            hasher.combine(maxPixelSize)
-        }
-
-        static func == (lhs: ImageTaskKey, rhs: ImageTaskKey) -> Bool {
-            lhs.url == rhs.url && lhs.maxPixelSize == rhs.maxPixelSize
-        }
     }
 
     private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
-    private var exifInfoTasks: [URL: Task<BrowserExifInfo?, Never>] = [:]
-
-    /// Bounds how many expensive full-size RAW decodes/demosaics can run at
-    /// once. Without this, rapid zoom navigation could otherwise pile up
-    /// several uncancelled full-resolution decodes concurrently.
-    private let fullSizeDecodeLimiter = DecodeConcurrencyLimiter(maxConcurrent: 2)
-    /// Bounds concurrent thumbnail decodes so fast grid scrolling can't spawn
-    /// unbounded RAW decode work.
-    private let thumbnailDecodeLimiter = DecodeConcurrencyLimiter(maxConcurrent: 6)
 
     private init() {}
 
@@ -89,7 +70,6 @@ actor RawImageLoader {
             return await existing.value
         }
 
-        let limiter = thumbnailDecodeLimiter
         let task = Task<NSImage?, Never>(priority: .utility) {
             if let diskImage = await ThumbnailDiskCache.shared.load(
                 for: url,
@@ -103,43 +83,14 @@ actor RawImageLoader {
                 return diskImage
             }
 
-            guard !Task.isCancelled else { return nil }
+            guard let image = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+                for: url,
+                targetSize: boundedTargetSize,
+            ), !Task.isCancelled else { return nil }
 
-            // Bound concurrent decodes: fast grid scrolling can otherwise
-            // trigger many simultaneous RAW/embedded-thumbnail decodes.
-            let cgImage: CGImage? = await limiter.run {
-                guard !Task.isCancelled else { return nil }
-
-                if SupportedFileType.isRenderedImage(url) {
-                    return OrientationNormalizedImageLoader.loadThumbnail(
-                        from: url,
-                        maxPixelSize: boundedTargetSize,
-                    )
-                }
-
-                if let embeddedThumbnail = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
-                    from: url,
-                    maxPixelSize: boundedTargetSize,
-                ) {
-                    return embeddedThumbnail
-                }
-
-                guard let format = RawFormatRegistry.format(for: url),
-                      let extracted = try? await format.extractThumbnail(
-                          from: url,
-                          maxDimension: CGFloat(boundedTargetSize),
-                          qualityCost: 4,
-                      )
-                else { return nil }
-
-                return OrientationNormalizedImageLoader.applyingSourceOrientation(to: extracted, from: url) ?? extracted
-            }
-
-            guard let cgImage, !Task.isCancelled else { return nil }
-
-            let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             await MemoryImageCache.shared.storeThumbnail(image, for: url, maxPixelSize: boundedTargetSize)
-            if let jpegData = ThumbnailDiskCache.jpegData(from: cgImage) {
+            if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+               let jpegData = ThumbnailDiskCache.jpegData(from: cgImage) {
                 await ThumbnailDiskCache.shared.save(
                     jpegData,
                     for: url,
@@ -160,28 +111,32 @@ actor RawImageLoader {
             return await existing.value
         }
 
-        // Only one full-size zoom preview is ever meaningful at a time. If a
-        // request for a different URL is still pending (e.g. the user is
-        // navigating quickly through photos), cancel it outright instead of
-        // letting an expensive, no-longer-needed decode run to completion in
-        // the background.
         for (staleURL, staleTask) in extractedJPGTasks where staleURL != url {
             staleTask.cancel()
             extractedJPGTasks[staleURL] = nil
         }
 
-        let limiter = fullSizeDecodeLimiter
         let task = Task<CGImage?, Never>(priority: .userInitiated) {
             guard !Task.isCancelled else { return nil }
 
             if SupportedFileType.isRenderedImage(url) {
-                return await limiter.run {
-                    guard !Task.isCancelled else { return nil }
-                    return await Self.loadCGImage(from: url)
-                }
+                return await Self.loadCGImage(from: url)
             }
 
-            return await Self.loadExtractedJPGPreview(for: url, limiter: limiter)
+            if let cached = await Self.fullSizeCache.load(for: url) {
+                guard !Task.isCancelled else { return nil }
+                return cached
+            }
+
+            let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url)
+            guard !Task.isCancelled else { return nil }
+
+            if let extracted,
+               let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+                await Self.fullSizeCache.save(jpegData, for: url)
+            }
+
+            return extracted
         }
 
         extractedJPGTasks[url] = task
@@ -200,284 +155,14 @@ actor RawImageLoader {
         extractedJPGTasks.removeAll()
     }
 
-    static func loadExtractedJPGPreview(for rawURL: URL, limiter: DecodeConcurrencyLimiter) async -> CGImage? {
-        let sidecarJPGURL = rawURL
-            .deletingPathExtension()
-            .appendingPathExtension(SupportedFileType.jpg.rawValue)
-
-        let sidecarImage = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
-        }.value
-
-        guard !Task.isCancelled else { return nil }
-        if let sidecarImage {
-            return sidecarImage
-        }
-
-        if let cached = await fullSizeCache.load(for: rawURL) {
-            guard !Task.isCancelled else { return nil }
-            return cached
-        }
-
-        guard !Task.isCancelled,
-              let format = RawFormatRegistry.format(for: rawURL)
-        else { return nil }
-
-        // The expensive step: decode the embedded preview or demosaic the
-        // full RAW. Bound via the shared limiter so a burst of navigation
-        // requests can't pile up unbounded full-resolution decodes.
-        let extracted: CGImage? = await limiter.run {
-            guard !Task.isCancelled else { return nil }
-
-            let orientedPreview = await Task.detached(priority: .userInitiated) {
-                OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
-            }.value
-
-            guard !Task.isCancelled else { return nil }
-
-            if let orientedPreview {
-                return orientedPreview
-            }
-
-            guard let image = await format.extractFullJPEG(from: rawURL, fullSize: false) else {
-                return nil
-            }
-            return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
-        }
-
-        guard !Task.isCancelled else { return nil }
-
-        if let extracted,
-           let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-            await fullSizeCache.save(jpegData, for: rawURL)
-        }
-
-        return extracted
-    }
-
     func exifInfo(for url: URL) async -> BrowserExifInfo? {
-        if let existing = exifInfoTasks[url] {
-            return await existing.value
-        }
-
-        let task = Task<BrowserExifInfo?, Never>(priority: .utility) {
-            await Self.loadExifInfo(from: url)
-        }
-
-        exifInfoTasks[url] = task
-        let info = await task.value
-        exifInfoTasks[url] = nil
-        return info
+        await RawParserKit.RawImageLoader.shared.exifInfo(for: url)
     }
 
     private nonisolated static func loadCGImage(from url: URL) async -> CGImage? {
         await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadCGImage(from: url)
         }.value
-    }
-
-    private nonisolated static func loadExifInfo(from url: URL) async -> BrowserExifInfo? {
-        await Task.detached(priority: .utility) {
-            let sidecarURL = url.deletingPathExtension().appendingPathExtension("jpg")
-            let properties = imageProperties(from: url) ?? imageProperties(from: sidecarURL)
-            let exif = properties?[kCGImagePropertyExifDictionary] as? [CFString: Any]
-            let tiff = properties?[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
-
-            let make = stringValue(tiff?[kCGImagePropertyTIFFMake])
-            let model = stringValue(tiff?[kCGImagePropertyTIFFModel])
-            let camera = joined([make, model])
-
-            let lens = stringValue(exif?[kCGImagePropertyExifLensModel])
-            let exposure = shutterDescription(numberValue(exif?[kCGImagePropertyExifExposureTime]))
-            let aperture = apertureDescription(numberValue(exif?[kCGImagePropertyExifFNumber]))
-            let focalLength = focalLengthDescription(numberValue(exif?[kCGImagePropertyExifFocalLength]))
-            let iso = isoDescription(exif?[kCGImagePropertyExifISOSpeedRatings])
-            let capturedAt = capturedAtDescription(
-                stringValue(exif?[kCGImagePropertyExifDateTimeOriginal]) ?? stringValue(tiff?[kCGImagePropertyTIFFDateTime]),
-            )
-            let dimensions = properties.flatMap { dimensionsDescription(properties: $0, exif: exif) }
-            let loadedFocusPoint = makerNoteFocusPoint(from: url) ?? properties.flatMap {
-                focusPoint(
-                    from: exif?[kCGImagePropertyExifSubjectArea],
-                    properties: $0,
-                    exif: exif,
-                )
-            }
-
-            let info = BrowserExifInfo(
-                camera: camera,
-                lens: lens,
-                exposure: exposure,
-                aperture: aperture,
-                focalLength: focalLength,
-                iso: iso,
-                capturedAt: capturedAt,
-                dimensions: dimensions,
-                focusPoint: loadedFocusPoint,
-            )
-            return info.isEmpty ? nil : info
-        }.value
-    }
-
-    private nonisolated static func imageProperties(from url: URL) -> [CFString: Any]? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
-        else { return nil }
-        return properties
-    }
-
-    private nonisolated static func stringValue(_ value: Any?) -> String? {
-        switch value {
-        case let value as String:
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
-
-        case let value as NSNumber:
-            return value.stringValue
-
-        default:
-            return nil
-        }
-    }
-
-    private nonisolated static func numberValue(_ value: Any?) -> Double? {
-        switch value {
-        case let value as NSNumber:
-            value.doubleValue
-
-        case let value as String:
-            Double(value)
-
-        default:
-            nil
-        }
-    }
-
-    private nonisolated static func intValue(_ value: Any?) -> Int? {
-        switch value {
-        case let value as NSNumber:
-            value.intValue
-
-        case let value as String:
-            Int(value)
-
-        default:
-            nil
-        }
-    }
-
-    private nonisolated static func joined(_ values: [String?]) -> String? {
-        var parts: [String] = []
-        for value in values.compactMap({ $0 }) where !parts.contains(value) {
-            parts.append(value)
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " ")
-    }
-
-    private nonisolated static func shutterDescription(_ seconds: Double?) -> String? {
-        guard let seconds, seconds > 0 else { return nil }
-        if seconds >= 1 {
-            return "\(trimmed(seconds)) s"
-        }
-        return "1/\(Int(round(1 / seconds))) s"
-    }
-
-    private nonisolated static func apertureDescription(_ aperture: Double?) -> String? {
-        guard let aperture, aperture > 0 else { return nil }
-        return "f/\(trimmed(aperture))"
-    }
-
-    private nonisolated static func focalLengthDescription(_ focalLength: Double?) -> String? {
-        guard let focalLength, focalLength > 0 else { return nil }
-        return "\(trimmed(focalLength)) mm"
-    }
-
-    private nonisolated static func isoDescription(_ value: Any?) -> String? {
-        if let values = value as? [Any],
-           let iso = values.compactMap({ intValue($0) }).first {
-            return "\(iso)"
-        }
-        if let iso = intValue(value) {
-            return "\(iso)"
-        }
-        return nil
-    }
-
-    private nonisolated static func capturedAtDescription(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy:MM:dd HH:mm:ss"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-
-        guard let date = parser.date(from: value) else { return value }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    private nonisolated static func dimensionsDescription(properties: [CFString: Any], exif: [CFString: Any]?) -> String? {
-        let width = intValue(properties[kCGImagePropertyPixelWidth]) ?? intValue(exif?[kCGImagePropertyExifPixelXDimension])
-        let height = intValue(properties[kCGImagePropertyPixelHeight]) ?? intValue(exif?[kCGImagePropertyExifPixelYDimension])
-        guard let width, let height, width > 0, height > 0 else { return nil }
-        return "\(width) x \(height)"
-    }
-
-    private nonisolated static func makerNoteFocusPoint(from url: URL) -> BrowserFocusPoint? {
-        guard let focusLocation = RawFormatRegistry.format(for: url)?.focusLocation(from: url) else { return nil }
-        let values = focusLocation
-            .split(whereSeparator: \.isWhitespace)
-            .compactMap { Double($0) }
-
-        guard values.count == 4,
-              values[0] > 0,
-              values[1] > 0
-        else { return nil }
-
-        let normalizedX = values[2] / values[0]
-        let normalizedY = values[3] / values[1]
-        guard (0 ... 1).contains(normalizedX), (0 ... 1).contains(normalizedY) else { return nil }
-        return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
-    }
-
-    private nonisolated static func focusPoint(
-        from value: Any?,
-        properties: [CFString: Any],
-        exif: [CFString: Any]?,
-    ) -> BrowserFocusPoint? {
-        let values = numericArray(value)
-        guard values.count >= 2 else { return nil }
-
-        let width = numberValue(properties[kCGImagePropertyPixelWidth]) ?? numberValue(exif?[kCGImagePropertyExifPixelXDimension])
-        let height = numberValue(properties[kCGImagePropertyPixelHeight]) ?? numberValue(exif?[kCGImagePropertyExifPixelYDimension])
-        guard let width, let height, width > 0, height > 0 else { return nil }
-
-        let normalizedX = values[0] / width
-        let normalizedY = values[1] / height
-        guard (0 ... 1).contains(normalizedX), (0 ... 1).contains(normalizedY) else { return nil }
-        return BrowserFocusPoint(normalizedX: normalizedX, normalizedY: normalizedY)
-    }
-
-    private nonisolated static func numericArray(_ value: Any?) -> [Double] {
-        switch value {
-        case let values as [Any]:
-            values.compactMap(numberValue)
-
-        case let values as NSArray:
-            values.compactMap(numberValue)
-
-        default:
-            []
-        }
-    }
-
-    private nonisolated static func trimmed(_ value: Double) -> String {
-        let rounded = (value * 10).rounded() / 10
-        if rounded == rounded.rounded() {
-            return "\(Int(rounded))"
-        }
-        return String(format: "%.1f", rounded)
     }
 
     private nonisolated static func supportedFileCount(in folderURL: URL) -> Int {
