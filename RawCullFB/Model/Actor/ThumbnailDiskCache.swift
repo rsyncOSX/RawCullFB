@@ -4,6 +4,7 @@ import Foundation
 import ImageIO
 import OSLog
 import UniformTypeIdentifiers
+import RawParserKit
 
 actor ThumbnailDiskCache {
     private static let cacheKeyVersion = "v2-oriented-thumbnails"
