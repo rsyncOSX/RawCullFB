@@ -116,7 +116,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
-				FB0000010000000000000010 /* XCRemoteSwiftPackageReference "RawParserKit" */,
+				FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */,
 				E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -286,7 +286,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -311,7 +311,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -339,7 +339,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -364,7 +364,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -407,6 +407,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RawParserKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -424,14 +431,6 @@
 				version = 1.1.0;
 			};
 		};
-		FB0000010000000000000010 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.1.5;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -447,7 +446,7 @@
 		};
 		FB0000010000000000000012 /* RawParserKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FB0000010000000000000010 /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			package = FB0000010000000000000010 /* XCLocalSwiftPackageReference "../RawParserKit" */;
 			productName = RawParserKit;
 		};
 /* End XCSwiftPackageProductDependency section */

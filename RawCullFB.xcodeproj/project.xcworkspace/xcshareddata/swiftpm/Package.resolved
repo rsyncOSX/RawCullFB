@@ -1,5 +1,5 @@
 {
-  "originHash" : "45b433311a2fb9942e0f738103ceac1ed1c5c4a3a0883355a9ed97442b33d995",
+  "originHash" : "d94901b0165f1454dfba206aaf557157e8fd37db3645c31804d2f7a6362dbb37",
   "pins" : [
     {
       "identity" : "decodeencodegeneric",
@@ -17,15 +17,6 @@
       "state" : {
         "revision" : "91138b766390dd60c537c4f3846f79bb83dead9c",
         "version" : "1.1.0"
-      }
-    },
-    {
-      "identity" : "rawparserkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawParserKit.git",
-      "state" : {
-        "revision" : "408a5eb280fe882c859fff28935015bc21578f5d",
-        "version" : "1.1.5"
       }
     }
   ],

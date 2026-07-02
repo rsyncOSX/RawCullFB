@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import Observation
+import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {

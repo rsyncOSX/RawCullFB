@@ -1,3 +1,4 @@
+import RawParserKit
 import SwiftUI
 
 struct ZoomMetadataPanel: View {
