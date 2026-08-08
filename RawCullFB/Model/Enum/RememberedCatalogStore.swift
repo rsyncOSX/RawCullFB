@@ -18,11 +18,11 @@ enum RememberedCatalogStore {
     }
 
     static func catalog(for url: URL) -> RememberedCatalog? {
-        guard let bookmarkData = try? url.bookmarkData(
-            options: [.withSecurityScope],
+        let bookmarkData = try? url.bookmarkData(
+            options: [],
             includingResourceValuesForKeys: nil,
             relativeTo: nil,
-        ) else { return nil }
+        )
 
         return RememberedCatalog(
             path: url.path,
@@ -42,13 +42,18 @@ enum RememberedCatalogStore {
     }
 
     static func resolvedURL(for catalog: RememberedCatalog) -> URL? {
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: catalog.bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale,
-        ), !isStale else { return nil }
+        let url: URL
+        if let bookmarkData = catalog.bookmarkData {
+            var isStale = false
+            url = (try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale,
+            )) ?? URL(filePath: catalog.path)
+        } else {
+            url = URL(filePath: catalog.path)
+        }
 
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),

@@ -15,6 +15,11 @@ struct SettingsView: View {
                     .tabItem {
                         Label("Memory", systemImage: "rectangle.compress.vertical")
                     }
+
+                CLIPSettingsTab()
+                    .tabItem {
+                        Label("CLIP", systemImage: "sparkle.magnifyingglass")
+                    }
             }
         }
         .padding(20)

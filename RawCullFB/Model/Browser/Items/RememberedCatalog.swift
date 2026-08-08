@@ -6,5 +6,5 @@ struct RememberedCatalog: Codable, Identifiable {
     }
 
     let path: String
-    let bookmarkData: Data
+    let bookmarkData: Data?
 }

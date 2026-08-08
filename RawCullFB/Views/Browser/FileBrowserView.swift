@@ -73,6 +73,13 @@ struct FileBrowserView: View {
         } message: {
             Text(viewModel.deleteFailure?.message ?? "The rejected files could not be moved to the Trash.")
         }
+        .alert("CLIP Operation Failed", isPresented: clipFailureBinding) {
+            Button("OK") {
+                viewModel.clipFeatureError = nil
+            }
+        } message: {
+            Text(viewModel.clipFeatureError ?? "The CLIP operation could not be completed.")
+        }
     }
 
     @ToolbarContentBuilder
@@ -88,6 +95,54 @@ struct FileBrowserView: View {
         }
 
         ToolbarItemGroup {
+            TextField("Semantic search", text: $viewModel.semanticSearchQuery)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
+                .disabled(!viewModel.hasCompatibleCLIPIndex || viewModel.isIndexing)
+                .onSubmit {
+                    viewModel.startSemanticSearch()
+                }
+
+            Button {
+                viewModel.startSemanticSearch()
+            } label: {
+                Label("Search", systemImage: "sparkle.magnifyingglass")
+            }
+            .disabled(!viewModel.canSearch || viewModel.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .help("Search the CLIP index and show up to \(viewModel.semanticSearchLimit) results")
+
+            Button {
+                viewModel.adjustSemanticSearchLimit(by: -10)
+            } label: {
+                Label("Decrease Results by 10", systemImage: "minus")
+            }
+            .labelStyle(.iconOnly)
+            .disabled(viewModel.semanticSearchLimit <= 10)
+            .help("Decrease the semantic result limit by 10")
+
+            Text(viewModel.semanticSearchLimit, format: .number)
+                .monospacedDigit()
+                .frame(minWidth: 28)
+                .help("Maximum semantic search results")
+
+            Button {
+                viewModel.adjustSemanticSearchLimit(by: 10)
+            } label: {
+                Label("Increase Results by 10", systemImage: "plus")
+            }
+            .labelStyle(.iconOnly)
+            .disabled(viewModel.semanticSearchLimit >= 500)
+            .help("Increase the semantic result limit by 10")
+
+            if viewModel.isShowingSemanticResults {
+                Button {
+                    viewModel.clearSemanticSearchResults()
+                } label: {
+                    Label("Clear Search", systemImage: "xmark.circle")
+                }
+                .help("Clear semantic search results")
+            }
+
             Button(role: .destructive) {
                 isShowingDeleteRejectedConfirmation = true
             } label: {
@@ -120,6 +175,10 @@ struct FileBrowserView: View {
                 ProgressView()
                     .controlSize(.small)
                     .help("Creating 200px memory thumbnails")
+            } else if viewModel.isSearching {
+                ProgressView()
+                    .controlSize(.small)
+                    .help("Searching the CLIP index")
             } else if viewModel.copyProgress.isActive {
                 ProgressView()
                     .controlSize(.small)
@@ -178,6 +237,16 @@ struct FileBrowserView: View {
         } set: { isPresented in
             if !isPresented {
                 viewModel.deleteFailure = nil
+            }
+        }
+    }
+
+    private var clipFailureBinding: Binding<Bool> {
+        Binding {
+            viewModel.clipFeatureError != nil
+        } set: { isPresented in
+            if !isPresented {
+                viewModel.clipFeatureError = nil
             }
         }
     }

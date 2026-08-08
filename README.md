@@ -1,11 +1,12 @@
 # RawCullFB
 
-RawCullFB is a small macOS SwiftUI file browser for quickly reviewing photo folders. It scans a selected folder and opens images in a zoomable preview. When a folder contains rendered image files (JPEG, TIFF, or PNG), it shows those files and loads them directly through the native image pipeline. Otherwise, it shows supported RAW files and uses embedded or sidecar JPEG previews where available.
+RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic search. It preserves the normal folder browser, ratings, copying, and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
 
 ## Requirements
 
-- macOS Tahoe or later
+- macOS 27 or later
 - **Apple Silicon** (M-series) only
+- A compatible Core AI CLIP model bundle selected by the user
 
 ## Features
 
@@ -15,10 +16,27 @@ RawCullFB is a small macOS SwiftUI file browser for quickly reviewing photo fold
 - Open a zoom overlay with keyboard navigation, pan, and magnification controls.
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
+- Verify user-selected CLIP bundles before enabling indexing or search.
+- Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
+- Search locally with natural-language descriptions and show thumbnail/path results.
+- Adjust the semantic result limit in steps of ten (default 50, range 10–500).
+
+## CLIP workflow
+
+1. Open **RawCullFB > Settings > CLIP** and choose a compatible model bundle.
+2. Wait for the model to report a valid verification status.
+3. Select the folder that should become the recursive index root.
+4. Choose **Index Selected Folder** in the main toolbar. Indexing never starts automatically.
+5. Enter a description in the semantic search field and press Return or Search.
+6. Double-click a result to inspect its full embedded/rendered JPEG with EXIF information and histogram.
+
+RawCullFB stores one model-specific index at `.clipbench/clip-<model-hash>.clipindex` inside the selected root. Source photographs are not modified. Model inference, embeddings, and search stay on the Mac.
+
+Semantic similarity is a retrieval aid, not a statement of fact. Results may be inaccurate, incomplete, biased, or unexpected and should not be used for safety-critical or other high-impact decisions.
 
 ## Requirements
 
-- macOS with Xcode installed.
+- macOS 27 with Xcode 27 installed.
 - SwiftUI and Swift Package Manager support through the Xcode project.
 - The `RawParserKit` package dependency resolved by `RawCullFB.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
@@ -58,3 +76,4 @@ The release workflow expects the local signing identity, notarization keychain p
 - `Assets.xcassets/` - Shared asset catalog; the app icon is now managed by `RawCullFBicon.icon`.
 - `Makefile` - Debug and release build automation.
 - `exportOptions.plist` - Xcode archive export settings.
+- `THIRD_PARTY_NOTICES.md` - notices for CLIP/AI dependencies and model licensing.
