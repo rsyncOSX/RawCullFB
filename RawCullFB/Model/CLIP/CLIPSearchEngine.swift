@@ -35,6 +35,34 @@ nonisolated struct CLIPIndexingProgress: Equatable, Sendable {
     let currentFileName: String?
 }
 
+nonisolated enum CLIPIndexStatus: Equatable, Sendable {
+    case noFolderSelected
+    case modelRequired
+    case checking(URL)
+    case notFound(URL)
+    case valid(directory: URL, indexed: Int, updatedAt: Date)
+    case needsUpdate(
+        directory: URL,
+        indexed: Int,
+        missing: Int,
+        changed: Int,
+        removed: Int,
+        updatedAt: Date
+    )
+    case invalid(directory: URL, reason: String)
+
+    var allowsSearch: Bool {
+        switch self {
+        case .valid, .needsUpdate: true
+        case .noFolderSelected, .modelRequired, .checking, .notFound, .invalid: false
+        }
+    }
+
+    var recommendsUpdate: Bool {
+        if case .needsUpdate = self { true } else { false }
+    }
+}
+
 nonisolated struct CLIPSearchResult: Equatable, Identifiable, Sendable {
     let rank: Int
     let score: Float
@@ -65,6 +93,76 @@ nonisolated final class CLIPSearchEngine: Sendable {
 
     func hasCompatibleIndex() async -> Bool {
         (try? await indexStore.load(compatibleWith: provider.backendDescriptor)) != nil
+    }
+
+    func validateIndex(directory: URL) async -> CLIPIndexStatus {
+        let standardizedDirectory = directory.standardizedFileURL
+        guard FileManager.default.fileExists(atPath: indexStore.fileURL.path) else {
+            return .notFound(standardizedDirectory)
+        }
+
+        do {
+            guard let index = try await indexStore.load(
+                compatibleWith: provider.backendDescriptor,
+            ) else {
+                return .invalid(
+                    directory: standardizedDirectory,
+                    reason: "The index is not compatible with the selected CLIP model or index format.",
+                )
+            }
+            try Task.checkCancellation()
+            let sources = try await Task.detached(priority: .utility) {
+                try CLIPImageDiscovery.sources(in: standardizedDirectory)
+            }.value
+            try Task.checkCancellation()
+
+            var entriesByPath: [String: CLIPIndexEntry] = [:]
+            for entry in index.entries {
+                entriesByPath[entry.fingerprint.standardizedPath] = entry
+            }
+
+            var currentPaths: Set<String> = []
+            var missing = 0
+            var changed = 0
+            for source in sources {
+                try Task.checkCancellation()
+                let fingerprint = SourceFingerprint(source: source)
+                currentPaths.insert(fingerprint.standardizedPath)
+                guard let entry = entriesByPath[fingerprint.standardizedPath] else {
+                    missing += 1
+                    continue
+                }
+                if entry.fingerprint != fingerprint
+                    || !entry.artifact.descriptor.matches(provider.backendDescriptor)
+                {
+                    changed += 1
+                }
+            }
+
+            let removed = entriesByPath.keys.count { !currentPaths.contains($0) }
+            if missing == 0, changed == 0, removed == 0 {
+                return .valid(
+                    directory: standardizedDirectory,
+                    indexed: index.entries.count,
+                    updatedAt: index.updatedAt,
+                )
+            }
+            return .needsUpdate(
+                directory: standardizedDirectory,
+                indexed: index.entries.count,
+                missing: missing,
+                changed: changed,
+                removed: removed,
+                updatedAt: index.updatedAt,
+            )
+        } catch is CancellationError {
+            return .checking(standardizedDirectory)
+        } catch {
+            return .invalid(
+                directory: standardizedDirectory,
+                reason: String(describing: error),
+            )
+        }
     }
 
     func synchronize(

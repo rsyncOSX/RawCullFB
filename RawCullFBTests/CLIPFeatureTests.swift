@@ -41,6 +41,28 @@ struct CLIPFeatureTests {
         #expect(first.pathExtension == "clipindex")
     }
 
+    @Test("Only current or partially outdated indexes allow search")
+    func indexStatusSearchAvailability() {
+        let directory = URL(filePath: "/tmp/photos", directoryHint: .isDirectory)
+        let updatedAt = Date(timeIntervalSince1970: 1)
+        let valid = CLIPIndexStatus.valid(directory: directory, indexed: 10, updatedAt: updatedAt)
+        let needsUpdate = CLIPIndexStatus.needsUpdate(
+            directory: directory,
+            indexed: 10,
+            missing: 2,
+            changed: 1,
+            removed: 0,
+            updatedAt: updatedAt,
+        )
+
+        #expect(valid.allowsSearch)
+        #expect(!valid.recommendsUpdate)
+        #expect(needsUpdate.allowsSearch)
+        #expect(needsUpdate.recommendsUpdate)
+        #expect(!CLIPIndexStatus.notFound(directory).allowsSearch)
+        #expect(!CLIPIndexStatus.invalid(directory: directory, reason: "bad index").allowsSearch)
+    }
+
     @Test("Discovery is recursive and ignores hidden or unsupported files")
     func recursiveDiscovery() throws {
         let root = FileManager.default.temporaryDirectory

@@ -35,6 +35,7 @@ final class FileBrowserViewModel {
     var zoomLaunchContext: BrowserZoomLaunchContext = .default
     var settings = BrowserSettings()
     var clipModelStatus: CLIPModelStatus = .notConfigured
+    var clipIndexStatus: CLIPIndexStatus = .noFolderSelected
     var isIndexing = false
     var indexingProgress: CLIPIndexingProgress?
     var lastIndexSummary: CLIPIndexSummary?
@@ -61,9 +62,11 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var clipEngineDirectoryURL: URL?
     @ObservationIgnored private var modelValidationTask: Task<Void, Never>?
     @ObservationIgnored private var indexingTask: Task<Void, Never>?
+    @ObservationIgnored private var indexValidationTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var semanticFiles: [BrowserFileItem] = []
     @ObservationIgnored private var indexingID = UUID()
+    @ObservationIgnored private var indexValidationID = UUID()
     @ObservationIgnored private var searchID = UUID()
 
     var displayedFiles: [BrowserFileItem] {
@@ -110,7 +113,7 @@ final class FileBrowserViewModel {
     }
 
     var isSidebarSelectionEnabled: Bool {
-        !isCreatingThumbnails
+        !isCreatingThumbnails && !isIndexing
     }
 
     var title: String {
@@ -139,8 +142,10 @@ final class FileBrowserViewModel {
     func clearCLIPModel() {
         modelValidationTask?.cancel()
         indexingTask?.cancel()
+        indexValidationTask?.cancel()
         searchTask?.cancel()
         indexingID = UUID()
+        indexValidationID = UUID()
         settings.clipModelPath = nil
         settings.lastIndexedDirectoryPath = nil
         clipModelStatus = .notConfigured
@@ -148,6 +153,7 @@ final class FileBrowserViewModel {
         clipEngine = nil
         clipEngineDirectoryURL = nil
         hasCompatibleCLIPIndex = false
+        clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
         isIndexing = false
         isSearching = false
         clearSemanticSearchResults()
@@ -175,13 +181,16 @@ final class FileBrowserViewModel {
         }
 
         indexingTask?.cancel()
+        indexValidationTask?.cancel()
         searchTask?.cancel()
         let operationID = UUID()
         indexingID = operationID
+        indexValidationID = UUID()
         let engine = makeCLIPEngine(provider: provider, directory: directory)
         clipEngine = engine
         clipEngineDirectoryURL = directory
         hasCompatibleCLIPIndex = false
+        clipIndexStatus = .checking(directory)
         isIndexing = true
         indexingProgress = nil
         lastIndexSummary = nil
@@ -197,7 +206,6 @@ final class FileBrowserViewModel {
                 try Task.checkCancellation()
                 guard self.indexingID == operationID, self.clipEngineDirectoryURL == directory else { return }
                 self.lastIndexSummary = summary
-                self.hasCompatibleCLIPIndex = true
                 self.settings.lastIndexedDirectoryPath = directory.path
                 self.persistSettings()
             } catch is CancellationError {
@@ -210,6 +218,7 @@ final class FileBrowserViewModel {
             self.isIndexing = false
             self.indexingProgress = nil
             self.indexingTask = nil
+            self.validateSelectedFolderCLIPIndex()
         }
     }
 
@@ -219,6 +228,48 @@ final class FileBrowserViewModel {
         indexingTask = nil
         isIndexing = false
         indexingProgress = nil
+        validateSelectedFolderCLIPIndex()
+    }
+
+    func validateSelectedFolderCLIPIndex() {
+        indexValidationTask?.cancel()
+        let validationID = UUID()
+        indexValidationID = validationID
+
+        guard let directory = selectedFolder?.url.standardizedFileURL else {
+            clipIndexStatus = .noFolderSelected
+            hasCompatibleCLIPIndex = false
+            return
+        }
+        guard let provider = clipProvider else {
+            clipIndexStatus = .modelRequired
+            hasCompatibleCLIPIndex = false
+            return
+        }
+
+        let engine = makeCLIPEngine(provider: provider, directory: directory)
+        clipEngine = engine
+        clipEngineDirectoryURL = directory
+        clipIndexStatus = .checking(directory)
+        hasCompatibleCLIPIndex = false
+
+        indexValidationTask = Task { [weak self] in
+            guard let self else { return }
+            let status = await engine.validateIndex(directory: directory)
+            guard !Task.isCancelled,
+                  self.indexValidationID == validationID,
+                  self.selectedFolder?.url.standardizedFileURL == directory
+            else { return }
+            self.clipIndexStatus = status
+            self.hasCompatibleCLIPIndex = status.allowsSearch
+            if status.allowsSearch {
+                self.settings.lastIndexedDirectoryPath = directory.path
+                self.persistSettings()
+            } else {
+                self.clearSemanticSearchResults()
+            }
+            self.indexValidationTask = nil
+        }
     }
 
     func startSemanticSearch() {
@@ -379,6 +430,7 @@ final class FileBrowserViewModel {
             selectionAnchorFileID = loadedFiles.first?.id
             isScanning = false
         }
+        validateSelectedFolderCLIPIndex()
     }
 
     private func loadChildrenIfNeeded(for folder: BrowserFolderItem) {
@@ -631,6 +683,7 @@ final class FileBrowserViewModel {
         fileRatings = [:]
         isScanning = false
         isCreatingThumbnails = false
+        resetCLIPIndexSelection()
         await RememberedCatalogStore.clear()
         await WriteSavedFilesJSON.clear()
     }
@@ -650,6 +703,7 @@ final class FileBrowserViewModel {
             selectionAnchorFileID = nil
             isScanning = false
             isCreatingThumbnails = false
+            resetCLIPIndexSelection()
         }
 
         rootFolders.removeAll { $0.url.standardizedFileURL == catalogURL }
@@ -854,14 +908,17 @@ final class FileBrowserViewModel {
     private func validateCLIPModel(at url: URL) {
         modelValidationTask?.cancel()
         indexingTask?.cancel()
+        indexValidationTask?.cancel()
         searchTask?.cancel()
         indexingID = UUID()
+        indexValidationID = UUID()
         searchID = UUID()
         clipModelStatus = .checking(url)
         clipProvider = nil
         clipEngine = nil
         clipEngineDirectoryURL = nil
         hasCompatibleCLIPIndex = false
+        clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
         isIndexing = false
         isSearching = false
         clipFeatureError = nil
@@ -873,7 +930,9 @@ final class FileBrowserViewModel {
             guard !Task.isCancelled, self.settings.clipModelPath == url.path else { return }
             self.clipModelStatus = load.status
             self.clipProvider = load.provider
-            if let provider = load.provider,
+            if self.selectedFolder != nil {
+                self.validateSelectedFolderCLIPIndex()
+            } else if let provider = load.provider,
                let directoryPath = self.settings.lastIndexedDirectoryPath
             {
                 await self.restoreCLIPEngine(
@@ -899,7 +958,9 @@ final class FileBrowserViewModel {
         guard await engine.hasCompatibleIndex() else { return }
         clipEngine = engine
         clipEngineDirectoryURL = standardizedDirectory
-        hasCompatibleCLIPIndex = true
+        let status = await engine.validateIndex(directory: standardizedDirectory)
+        clipIndexStatus = status
+        hasCompatibleCLIPIndex = status.allowsSearch
     }
 
     private func makeCLIPEngine(
@@ -923,6 +984,22 @@ final class FileBrowserViewModel {
     ) {
         guard indexingID == operationID else { return }
         indexingProgress = progress
+    }
+
+    private func resetCLIPIndexSelection() {
+        indexingTask?.cancel()
+        indexValidationTask?.cancel()
+        searchTask?.cancel()
+        indexingID = UUID()
+        indexValidationID = UUID()
+        searchID = UUID()
+        clipEngine = nil
+        clipEngineDirectoryURL = nil
+        clipIndexStatus = .noFolderSelected
+        hasCompatibleCLIPIndex = false
+        isIndexing = false
+        indexingProgress = nil
+        clearSemanticSearchResults()
     }
 
     private func persistSettings() {

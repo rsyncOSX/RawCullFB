@@ -95,23 +95,6 @@ struct FileBrowserView: View {
         }
 
         ToolbarItemGroup {
-            Button {
-                viewModel.startIndexingSelectedFolder()
-            } label: {
-                Label("Index Selected Folder", systemImage: "square.stack.3d.up")
-            }
-            .disabled(!viewModel.canIndexSelectedFolder)
-            .help(indexButtonHelp)
-
-            if viewModel.isIndexing {
-                Button(role: .cancel) {
-                    viewModel.cancelIndexing()
-                } label: {
-                    Label("Cancel Indexing", systemImage: "stop.circle")
-                }
-                .help("Cancel CLIP indexing")
-            }
-
             TextField("Semantic search", text: $viewModel.semanticSearchQuery)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
@@ -192,10 +175,6 @@ struct FileBrowserView: View {
                 ProgressView()
                     .controlSize(.small)
                     .help("Creating 200px memory thumbnails")
-            } else if viewModel.isIndexing {
-                ProgressView(value: indexingCompleted, total: indexingTotal)
-                    .frame(width: 72)
-                    .help(indexingProgressHelp)
             } else if viewModel.isSearching {
                 ProgressView()
                     .controlSize(.small)
@@ -240,30 +219,6 @@ struct FileBrowserView: View {
             return "No rated 2-5 images in the current folder"
         }
         return "Copy \(viewModel.positiveRatedFileCount) rated image\(viewModel.positiveRatedFileCount == 1 ? "" : "s") to a folder"
-    }
-
-    private var indexButtonHelp: String {
-        if !viewModel.clipModelStatus.isAvailable {
-            return "Choose and verify a CLIP model in Settings"
-        }
-        guard let folder = viewModel.selectedFolder else {
-            return "Select a folder to index"
-        }
-        return "Recursively synchronize the CLIP index in \(folder.url.path)"
-    }
-
-    private var indexingCompleted: Double {
-        Double(viewModel.indexingProgress?.completed ?? 0)
-    }
-
-    private var indexingTotal: Double {
-        Double(max(viewModel.indexingProgress?.total ?? 1, 1))
-    }
-
-    private var indexingProgressHelp: String {
-        guard let progress = viewModel.indexingProgress else { return "Discovering images" }
-        let file = progress.currentFileName.map { ": \($0)" } ?? ""
-        return "Indexed \(progress.completed) of \(progress.total)\(file)"
     }
 
     private var copyFailureBinding: Binding<Bool> {
