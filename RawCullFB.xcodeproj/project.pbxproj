@@ -30,24 +30,31 @@
 /* Begin PBXFileReference section */
 		E90ED2082FE07ABB0034DF74 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RawCullFBicon.icon; sourceTree = "<group>"; };
-		FB0000010000000000000003 /* RawCullFB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCullFB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA1000010000000000000003 /* RawCullFBTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullFBTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB0000010000000000000003 /* RawCullFB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCullFB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		FB0000010000000000000005 /* RawCullFB */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RawCullFB;
-			sourceTree = "<group>";
-		};
 		FA1000010000000000000005 /* RawCullFBTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RawCullFBTests;
 			sourceTree = "<group>";
 		};
+		FB0000010000000000000005 /* RawCullFB */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RawCullFB;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FA1000010000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FB0000010000000000000006 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -58,13 +65,6 @@
 				E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */,
 				FB0000010000000000000001 /* RawCullCore in Frameworks */,
 				E9BCDDC92FF6962A004A4A95 /* RawParserKit in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FA1000010000000000000006 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -94,6 +94,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FA1000010000000000000009 /* RawCullFBTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA100001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFBTests" */;
+			buildPhases = (
+				FA100001000000000000000B /* Sources */,
+				FA1000010000000000000006 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FA1000010000000000000017 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FA1000010000000000000005 /* RawCullFBTests */,
+			);
+			name = RawCullFBTests;
+			packageProductDependencies = (
+			);
+			productName = RawCullFBTests;
+			productReference = FA1000010000000000000003 /* RawCullFBTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		FB0000010000000000000009 /* RawCullFB */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FB000001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFB" */;
@@ -122,28 +144,6 @@
 			productReference = FB0000010000000000000003 /* RawCullFB.app */;
 			productType = "com.apple.product-type.application";
 		};
-		FA1000010000000000000009 /* RawCullFBTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FA100001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFBTests" */;
-			buildPhases = (
-				FA100001000000000000000B /* Sources */,
-				FA1000010000000000000006 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				FA1000010000000000000017 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				FA1000010000000000000005 /* RawCullFBTests */,
-			);
-			name = RawCullFBTests;
-			packageProductDependencies = (
-			);
-			productName = RawCullFBTests;
-			productReference = FA1000010000000000000003 /* RawCullFBTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -154,12 +154,12 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
-					FB0000010000000000000009 = {
-						CreatedOnToolsVersion = 26.2;
-					};
 					FA1000010000000000000009 = {
 						CreatedOnToolsVersion = 27.0;
 						TestTargetID = FB0000010000000000000009;
+					};
+					FB0000010000000000000009 = {
+						CreatedOnToolsVersion = 26.2;
 					};
 				};
 			};
@@ -202,14 +202,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		FB000001000000000000000B /* Sources */ = {
+		FA100001000000000000000B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FA100001000000000000000B /* Sources */ = {
+		FB000001000000000000000B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -227,6 +227,40 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FA1000010000000000000015 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFBTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCullFB.app/Contents/MacOS/RawCullFB";
+			};
+			name = Debug;
+		};
+		FA1000010000000000000016 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFBTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCullFB.app/Contents/MacOS/RawCullFB";
+			};
+			name = Release;
+		};
 		FB0000010000000000000013 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -360,7 +394,7 @@
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 20;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = NO;
@@ -385,7 +419,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -412,7 +446,7 @@
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 20;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = NO;
@@ -437,7 +471,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -457,43 +491,18 @@
 			};
 			name = Release;
 		};
-		FA1000010000000000000015 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 93M47F4H9T;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFBTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCullFB.app/Contents/MacOS/RawCullFB";
-			};
-			name = Debug;
-		};
-		FA1000010000000000000016 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 93M47F4H9T;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFBTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCullFB.app/Contents/MacOS/RawCullFB";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FA100001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFBTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA1000010000000000000015 /* Debug */,
+				FA1000010000000000000016 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FB000001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFB" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -512,26 +521,9 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FA100001000000000000000A /* Build configuration list for PBXNativeTarget "RawCullFBTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FA1000010000000000000015 /* Debug */,
-				FA1000010000000000000016 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
-			requirement = {
-				kind = revision;
-				revision = 1e2eaccd00947fbadda300e4a617842479cae7b9;
-			};
-		};
 		E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/DecodeEncodeGeneric";
@@ -548,6 +540,14 @@
 				version = 1.2.8;
 			};
 		};
+		FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
+			requirement = {
+				kind = revision;
+				revision = 1e2eaccd00947fbadda300e4a617842479cae7b9;
+			};
+		};
 		FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
@@ -559,6 +559,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
+			productName = DecodeEncodeGeneric;
+		};
+		E9BCDDC82FF6962A004A4A95 /* RawParserKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			productName = RawParserKit;
+		};
 		FA0000010000000000000002 /* CoreAICLIPBackend */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
@@ -573,16 +583,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIWorkflows;
-		};
-		E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
-			productName = DecodeEncodeGeneric;
-		};
-		E9BCDDC82FF6962A004A4A95 /* RawParserKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */;
-			productName = RawParserKit;
 		};
 		FB0000010000000000000011 /* RawCullCore */ = {
 			isa = XCSwiftPackageProductDependency;
