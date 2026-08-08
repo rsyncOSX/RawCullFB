@@ -1,6 +1,6 @@
 import Foundation
 
-struct BrowserSettings: Codable {
+nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
     nonisolated static let defaultMemoryCacheSizeMB = 768
     nonisolated static let defaultGridCacheSizeMB = 768
     nonisolated static let defaultMaxCachedExtractedJPGs = 4
@@ -13,6 +13,9 @@ struct BrowserSettings: Codable {
     var thumbnailSizePreview = 1616
     var thumbnailSizeFullSize = 8700
     var enableRatingPins = true
+    var clipModelPath: String?
+    var semanticSearchLimit = 50
+    var lastIndexedDirectoryPath: String?
 
     enum CodingKeys: String, CodingKey {
         case memoryCacheSizeMB
@@ -22,6 +25,9 @@ struct BrowserSettings: Codable {
         case thumbnailSizePreview
         case thumbnailSizeFullSize
         case enableRatingPins
+        case clipModelPath
+        case semanticSearchLimit
+        case lastIndexedDirectoryPath
     }
 
     init() {}
@@ -46,5 +52,11 @@ struct BrowserSettings: Codable {
         thumbnailSizePreview = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizePreview) ?? thumbnailSizePreview
         thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
         enableRatingPins = try container.decodeIfPresent(Bool.self, forKey: .enableRatingPins) ?? enableRatingPins
+        clipModelPath = try container.decodeIfPresent(String.self, forKey: .clipModelPath)
+        semanticSearchLimit = min(
+            max(try container.decodeIfPresent(Int.self, forKey: .semanticSearchLimit) ?? semanticSearchLimit, 10),
+            500,
+        )
+        lastIndexedDirectoryPath = try container.decodeIfPresent(String.self, forKey: .lastIndexedDirectoryPath)
     }
 }

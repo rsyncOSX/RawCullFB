@@ -14,6 +14,12 @@ build: clean archive sign-app notarize staple prepare-dmg open
 # Debug build - skips notarization and signing
 debug: clean archive-debug open-debug
 
+test-smoke:
+	xcodebuild $(XCODE_TEST_FLAGS) -only-testing:RawCullFBTests/CLIPFeatureTests test
+
+test-full:
+	xcodebuild $(XCODE_TEST_FLAGS) test
+
 # --- MAIN WORKFLOW FUNCTIONS --- #
 archive: clean
 	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCullFB"'

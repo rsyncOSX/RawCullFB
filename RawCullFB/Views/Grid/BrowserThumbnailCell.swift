@@ -7,6 +7,7 @@ struct BrowserThumbnailCell: View {
     let isFocused: Bool
     let isSelected: Bool
     let thumbnailSize: Int
+    let displayPath: String?
 
     @State private var image: NSImage?
     @State private var isLoading = false
@@ -15,9 +16,11 @@ struct BrowserThumbnailCell: View {
         VStack(alignment: .leading, spacing: 6) {
             thumbnail
 
-            Text(file.name)
+            Text(displayPath ?? file.name)
                 .font(.caption)
                 .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .contentShape(.rect)

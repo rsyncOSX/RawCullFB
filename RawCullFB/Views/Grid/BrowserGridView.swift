@@ -21,13 +21,16 @@ struct BrowserGridView: View {
         GeometryReader { geometry in
             ScrollView {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: gridSpacing) {
-                    ForEach(viewModel.files) { file in
+                    ForEach(viewModel.displayedFiles) { file in
                         BrowserThumbnailCell(
                             file: file,
-                            rating: viewModel.settings.enableRatingPins ? viewModel.rating(for: file) : nil,
+                            rating: viewModel.settings.enableRatingPins && !viewModel.isShowingSemanticResults
+                                ? viewModel.rating(for: file)
+                                : nil,
                             isFocused: viewModel.selectedFileID == file.id,
                             isSelected: viewModel.selectedFileIDs.contains(file.id),
                             thumbnailSize: viewModel.settings.thumbnailSizeGrid,
+                            displayPath: viewModel.isShowingSemanticResults ? file.url.path : nil,
                         )
                         .onTapGesture {
                             select(file)
@@ -47,12 +50,24 @@ struct BrowserGridView: View {
             }
         }
         .overlay {
-            if viewModel.files.isEmpty, !viewModel.isScanning {
+            if viewModel.displayedFiles.isEmpty, !viewModel.isScanning, !viewModel.isSearching {
                 ContentUnavailableView(
-                    "No Supported Files",
-                    systemImage: "photo.on.rectangle.angled",
-                    description: Text("Choose a folder containing RAW, JPEG, TIFF, or PNG files."),
+                    viewModel.semanticSearchQuery.isEmpty ? "No Supported Files" : "No Semantic Matches",
+                    systemImage: viewModel.semanticSearchQuery.isEmpty
+                        ? "photo.on.rectangle.angled"
+                        : "sparkle.magnifyingglass",
+                    description: Text(
+                        viewModel.semanticSearchQuery.isEmpty
+                            ? "Choose a folder containing RAW, JPEG, TIFF, or PNG files."
+                            : "Try a different description or increase the result limit in Settings.",
+                    ),
                 )
+            }
+
+            if viewModel.isSearching {
+                ProgressView("Searching…")
+                    .padding(14)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 8))
             }
         }
         .focusable()
