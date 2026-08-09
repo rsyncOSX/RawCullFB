@@ -73,6 +73,27 @@ nonisolated struct CLIPSearchResult: Equatable, Identifiable, Sendable {
     var url: URL { URL(filePath: path) }
 }
 
+nonisolated struct CLIPSimilarityNeighbor: Equatable, Sendable {
+    let rank: Int
+    let distance: Float
+    let fileName: String
+    let path: String
+}
+
+nonisolated struct CLIPSimilarityAnchorResult: Equatable, Sendable {
+    let fileName: String
+    let path: String
+    let neighbors: [CLIPSimilarityNeighbor]
+}
+
+nonisolated struct CLIPSimilarityEvaluation: Equatable, Sendable {
+    let imageCount: Int
+    let pairComparisonCount: Int
+    let incompatiblePairCount: Int
+    let neighborLimit: Int
+    let anchors: [CLIPSimilarityAnchorResult]
+}
+
 nonisolated final class CLIPSearchEngine: Sendable {
     let provider: CoreAICLIPProvider
     let indexStore: CLIPIndexStore
@@ -269,6 +290,123 @@ nonisolated final class CLIPSearchEngine: Sendable {
                 path: item.0.source.url.path,
             )
         }
+    }
+
+    func evaluateImageSimilarity(neighborLimit: Int = 10) async throws -> CLIPSimilarityEvaluation {
+        guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
+            throw CLIPFeatureError.missingCompatibleIndex
+        }
+
+        let entries = index.entries.sorted {
+            $0.source.url.path.localizedStandardCompare($1.source.url.path) == .orderedAscending
+        }
+        let decoder = JSONDecoder()
+        let embeddings = try entries.map { entry in
+            let embedding = try decoder.decode(ImageEmbedding.self, from: entry.artifact.payload)
+            guard EmbeddingArtifact(
+                descriptor: entry.artifact.descriptor,
+                embedding: embedding,
+            ).isInternallyConsistent else {
+                throw CLIPSimilarityArtifactError.invalidPayload(
+                    "The vector payload does not match its artifact descriptor.",
+                )
+            }
+            return embedding
+        }
+        let limit = max(0, min(neighborLimit, max(0, entries.count - 1)))
+        var candidates = Array(
+            repeating: [(entry: CLIPIndexEntry, distance: Float)](),
+            count: entries.count,
+        )
+        var pairComparisonCount = 0
+        var incompatiblePairCount = 0
+
+        guard entries.count > 1 else {
+            return CLIPSimilarityEvaluation(
+                imageCount: entries.count,
+                pairComparisonCount: 0,
+                incompatiblePairCount: 0,
+                neighborLimit: limit,
+                anchors: entries.map {
+                    CLIPSimilarityAnchorResult(
+                        fileName: $0.source.displayName,
+                        path: $0.source.url.path,
+                        neighbors: [],
+                    )
+                },
+            )
+        }
+
+        for leftIndex in 0 ..< entries.count - 1 {
+            try Task.checkCancellation()
+            for rightIndex in leftIndex + 1 ..< entries.count {
+                pairComparisonCount += 1
+                guard let distance = embeddings[leftIndex].cosineDistance(
+                    to: embeddings[rightIndex],
+                ) else {
+                    incompatiblePairCount += 1
+                    continue
+                }
+                insertCandidate(
+                    (entries[rightIndex], distance),
+                    into: &candidates[leftIndex],
+                    limit: limit,
+                )
+                insertCandidate(
+                    (entries[leftIndex], distance),
+                    into: &candidates[rightIndex],
+                    limit: limit,
+                )
+            }
+        }
+
+        let anchors = entries.indices.map { index in
+            let sorted = candidates[index].sorted {
+                if $0.distance == $1.distance {
+                    return $0.entry.source.url.path < $1.entry.source.url.path
+                }
+                return $0.distance < $1.distance
+            }
+            let neighbors = sorted.prefix(limit).enumerated().map { offset, candidate in
+                CLIPSimilarityNeighbor(
+                    rank: offset + 1,
+                    distance: candidate.distance,
+                    fileName: candidate.entry.source.displayName,
+                    path: candidate.entry.source.url.path,
+                )
+            }
+            return CLIPSimilarityAnchorResult(
+                fileName: entries[index].source.displayName,
+                path: entries[index].source.url.path,
+                neighbors: neighbors,
+            )
+        }
+
+        return CLIPSimilarityEvaluation(
+            imageCount: entries.count,
+            pairComparisonCount: pairComparisonCount,
+            incompatiblePairCount: incompatiblePairCount,
+            neighborLimit: limit,
+            anchors: anchors,
+        )
+    }
+
+    private func insertCandidate(
+        _ candidate: (entry: CLIPIndexEntry, distance: Float),
+        into candidates: inout [(entry: CLIPIndexEntry, distance: Float)],
+        limit: Int,
+    ) {
+        guard limit > 0 else { return }
+        candidates.append(candidate)
+        guard candidates.count > limit else { return }
+        let worstIndex = candidates.indices.max { left, right in
+            if candidates[left].distance == candidates[right].distance {
+                return candidates[left].entry.source.url.path
+                    < candidates[right].entry.source.url.path
+            }
+            return candidates[left].distance < candidates[right].distance
+        }
+        if let worstIndex { candidates.remove(at: worstIndex) }
     }
 }
 

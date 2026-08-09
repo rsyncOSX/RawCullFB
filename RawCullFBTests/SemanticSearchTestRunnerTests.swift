@@ -37,6 +37,53 @@ struct SemanticSearchTestRunnerTests {
             search: { query, limit in
                 try await recorder.search(query: query, limit: limit)
             },
+            similarity: { neighborLimit in
+                #expect(neighborLimit == 10)
+                return CLIPSimilarityEvaluation(
+                    imageCount: 3,
+                    pairComparisonCount: 3,
+                    incompatiblePairCount: 0,
+                    neighborLimit: 2,
+                    anchors: [
+                        CLIPSimilarityAnchorResult(
+                            fileName: "first.jpg",
+                            path: directory.appendingPathComponent("first.jpg").path,
+                            neighbors: [
+                                CLIPSimilarityNeighbor(
+                                    rank: 1,
+                                    distance: 0.1,
+                                    fileName: "second.jpg",
+                                    path: directory.appendingPathComponent("second.jpg").path,
+                                ),
+                            ],
+                        ),
+                        CLIPSimilarityAnchorResult(
+                            fileName: "second.jpg",
+                            path: directory.appendingPathComponent("second.jpg").path,
+                            neighbors: [
+                                CLIPSimilarityNeighbor(
+                                    rank: 1,
+                                    distance: 0.1,
+                                    fileName: "first.jpg",
+                                    path: directory.appendingPathComponent("first.jpg").path,
+                                ),
+                            ],
+                        ),
+                        CLIPSimilarityAnchorResult(
+                            fileName: "third.jpg",
+                            path: directory.appendingPathComponent("third.jpg").path,
+                            neighbors: [
+                                CLIPSimilarityNeighbor(
+                                    rank: 1,
+                                    distance: 0.4,
+                                    fileName: "first.jpg",
+                                    path: directory.appendingPathComponent("first.jpg").path,
+                                ),
+                            ],
+                        ),
+                    ],
+                )
+            },
             progress: { progress in
                 await reportRecorder.capture(progress)
             },
@@ -61,6 +108,12 @@ struct SemanticSearchTestRunnerTests {
         #expect(report.contains("completed_queries\t3"))
         #expect(report.contains("QUERY\t1\ta dog"))
         #expect(report.contains("1\t0.75\ta dog.jpg\timages/a dog.jpg"))
+        #expect(report.contains("similarity_status\tcompleted"))
+        #expect(report.contains("IMAGE_SIMILARITY_TEST"))
+        #expect(report.contains("pair_comparisons\t3"))
+        #expect(report.contains("mutual_top1_pairs\t1"))
+        #expect(report.contains("ANCHOR\t1\tfirst.jpg\tfirst.jpg"))
+        #expect(report.contains("1\t0.1\t0.9\tsecond.jpg\tsecond.jpg"))
 
         let snapshots = await reportRecorder.snapshots
         #expect(snapshots.count == 4)

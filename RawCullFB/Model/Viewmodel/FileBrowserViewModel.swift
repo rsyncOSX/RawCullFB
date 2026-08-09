@@ -391,6 +391,11 @@ final class FileBrowserViewModel {
                         )
                         return results
                     },
+                    similarity: { neighborLimit in
+                        try await engine.evaluateImageSimilarity(
+                            neighborLimit: neighborLimit,
+                        )
+                    },
                     progress: { [weak self] progress in
                         await self?.publishSemanticTestProgress(
                             progress,

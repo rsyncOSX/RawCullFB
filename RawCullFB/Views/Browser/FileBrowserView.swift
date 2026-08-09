@@ -157,9 +157,9 @@ struct FileBrowserView: View {
                 Button(role: .cancel) {
                     viewModel.cancelSemanticTest()
                 } label: {
-                    Label("Cancel Semantic Test", systemImage: "stop.circle")
+                    Label("Cancel Model Test", systemImage: "stop.circle")
                 }
-                .help("Stop after preserving all completed semantic test queries")
+                .help("Stop after preserving all completed model test results")
 
                 if let progress = viewModel.semanticTestProgress {
                     Text(
@@ -167,8 +167,8 @@ struct FileBrowserView: View {
                         comment: "Completed semantic test queries followed by total queries.",
                     )
                     .font(.caption.monospacedDigit())
-                    .help(progress.currentQuery ?? "Finishing semantic test")
-                    .accessibilityLabel("Semantic test progress")
+                    .help(progress.currentQuery ?? "Comparing indexed images")
+                    .accessibilityLabel("Model test progress")
                     .accessibilityValue(
                         "\(progress.completedQueryCount) of \(progress.totalQueryCount) queries completed",
                     )
@@ -177,16 +177,16 @@ struct FileBrowserView: View {
                 Button {
                     viewModel.startSemanticTest()
                 } label: {
-                    Label("Run Semantic Test", systemImage: "checklist")
+                    Label("Run Model Test", systemImage: "checklist")
                 }
                 .disabled(!viewModel.canRunSemanticTest)
-                .help("Run semantictest.txt from the selected folder and save model-prefixed results")
+                .help("Run semantic queries, compare every indexed image, and save model-prefixed results")
 
                 if let outcome = viewModel.semanticTestOutcome {
                     Text("Test \(outcome.completedQueryCount)/\(outcome.totalQueryCount)")
                         .font(.caption.monospacedDigit())
                         .help("Results saved to \(outcome.resultFileURL.lastPathComponent)")
-                        .accessibilityLabel("Last semantic test result")
+                        .accessibilityLabel("Last model test result")
                         .accessibilityValue(
                             "\(outcome.completedQueryCount) of \(outcome.totalQueryCount) queries saved",
                         )

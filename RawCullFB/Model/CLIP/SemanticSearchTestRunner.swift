@@ -35,6 +35,7 @@ nonisolated enum SemanticSearchTestRunner {
     static let inputFileName = "semantictest.txt"
 
     typealias Search = @Sendable (String, Int) async throws -> [CLIPSearchResult]
+    typealias Similarity = @Sendable (Int) async throws -> CLIPSimilarityEvaluation
     typealias Progress = @Sendable (SemanticSearchTestProgress) async -> Void
 
     static func run(
@@ -43,6 +44,8 @@ nonisolated enum SemanticSearchTestRunner {
         modelFingerprint: String,
         resultLimit: Int,
         search: Search,
+        similarityNeighborLimit: Int = 10,
+        similarity: Similarity? = nil,
         progress: Progress? = nil,
     ) async throws -> SemanticSearchTestOutcome {
         let catalogURL = directory.standardizedFileURL
@@ -68,6 +71,7 @@ nonisolated enum SemanticSearchTestRunner {
         )
         let startedAt = Date()
         var records: [QueryRecord] = []
+        var similarityRecord: SimilarityRecord?
         var wasCancelled = false
 
         try writeReport(
@@ -80,6 +84,8 @@ nonisolated enum SemanticSearchTestRunner {
             status: "running",
             totalQueryCount: queries.count,
             records: records,
+            similarityRequested: similarity != nil,
+            similarityRecord: similarityRecord,
         )
         await progress?(SemanticSearchTestProgress(
             completedQueryCount: 0,
@@ -125,6 +131,8 @@ nonisolated enum SemanticSearchTestRunner {
                 status: records.count == queries.count ? "completed" : "running",
                 totalQueryCount: queries.count,
                 records: records,
+                similarityRequested: similarity != nil,
+                similarityRecord: similarityRecord,
             )
             await progress?(SemanticSearchTestProgress(
                 completedQueryCount: records.count,
@@ -132,6 +140,40 @@ nonisolated enum SemanticSearchTestRunner {
                 currentQuery: records.count < queries.count ? queries[records.count] : nil,
                 resultFileURL: resultFileURL,
             ))
+        }
+
+        if !wasCancelled, let similarity {
+            try writeReport(
+                to: resultFileURL,
+                modelName: modelName,
+                modelFingerprint: modelFingerprint,
+                catalogURL: catalogURL,
+                resultLimit: resultLimit,
+                startedAt: startedAt,
+                status: "running_similarity",
+                totalQueryCount: queries.count,
+                records: records,
+                similarityRequested: true,
+                similarityRecord: nil,
+            )
+
+            let similarityStartedAt = Date()
+            do {
+                let evaluation = try await similarity(similarityNeighborLimit)
+                similarityRecord = SimilarityRecord(
+                    durationMilliseconds: elapsedMilliseconds(since: similarityStartedAt),
+                    evaluation: evaluation,
+                    error: nil,
+                )
+            } catch is CancellationError {
+                wasCancelled = true
+            } catch {
+                similarityRecord = SimilarityRecord(
+                    durationMilliseconds: elapsedMilliseconds(since: similarityStartedAt),
+                    evaluation: nil,
+                    error: String(describing: error),
+                )
+            }
         }
 
         try writeReport(
@@ -144,6 +186,8 @@ nonisolated enum SemanticSearchTestRunner {
             status: wasCancelled ? "cancelled" : "completed",
             totalQueryCount: queries.count,
             records: records,
+            similarityRequested: similarity != nil,
+            similarityRecord: similarityRecord,
         )
 
         return SemanticSearchTestOutcome(
@@ -161,6 +205,12 @@ nonisolated enum SemanticSearchTestRunner {
         let error: String?
     }
 
+    private struct SimilarityRecord {
+        let durationMilliseconds: Int
+        let evaluation: CLIPSimilarityEvaluation?
+        let error: String?
+    }
+
     private static func writeReport(
         to url: URL,
         modelName: String,
@@ -171,9 +221,11 @@ nonisolated enum SemanticSearchTestRunner {
         status: String,
         totalQueryCount: Int,
         records: [QueryRecord],
+        similarityRequested: Bool,
+        similarityRecord: SimilarityRecord?,
     ) throws {
         var lines = [
-            "RawCullFB semantic search test",
+            "RawCullFB semantic search and image similarity test",
             "model\t\(tabSafe(modelName))",
             "model_fingerprint\t\(tabSafe(modelFingerprint))",
             "catalog\t\(tabSafe(catalogURL.path))",
@@ -183,6 +235,7 @@ nonisolated enum SemanticSearchTestRunner {
             "result_limit\t\(resultLimit)",
             "completed_queries\t\(records.count)",
             "total_queries\t\(totalQueryCount)",
+            "similarity_status\t\(similarityStatus(requested: similarityRequested, record: similarityRecord, overallStatus: status))",
             "",
         ]
 
@@ -202,10 +255,96 @@ nonisolated enum SemanticSearchTestRunner {
             lines.append("")
         }
 
+        appendSimilarityReport(
+            to: &lines,
+            record: similarityRecord,
+            catalogURL: catalogURL,
+        )
+
         try Data((lines.joined(separator: "\n") + "\n").utf8).write(
             to: url,
             options: .atomic,
         )
+    }
+
+    private static func appendSimilarityReport(
+        to lines: inout [String],
+        record: SimilarityRecord?,
+        catalogURL: URL,
+    ) {
+        guard let record else { return }
+
+        lines.append("IMAGE_SIMILARITY_TEST")
+        lines.append("duration_ms\t\(record.durationMilliseconds)")
+        if let error = record.error {
+            lines.append("error\t\(tabSafe(error))")
+            lines.append("")
+            return
+        }
+        guard let evaluation = record.evaluation else { return }
+
+        let nearestDistances = evaluation.anchors.compactMap { $0.neighbors.first?.distance }
+        let topTargets = evaluation.anchors.compactMap { $0.neighbors.first?.path }
+        let targetCounts = Dictionary(grouping: topTargets, by: { $0 }).mapValues(\.count)
+        let topTargetByAnchor = Dictionary(
+            uniqueKeysWithValues: evaluation.anchors.compactMap { anchor in
+                anchor.neighbors.first.map { (anchor.path, $0.path) }
+            },
+        )
+        let mutualPairCount = topTargetByAnchor.reduce(into: 0) { count, item in
+            let (anchor, target) = item
+            guard anchor < target, topTargetByAnchor[target] == anchor else { return }
+            count += 1
+        }
+
+        lines.append("image_count\t\(evaluation.imageCount)")
+        lines.append("pair_comparisons\t\(evaluation.pairComparisonCount)")
+        lines.append("incompatible_pairs\t\(evaluation.incompatiblePairCount)")
+        lines.append("neighbor_limit\t\(evaluation.neighborLimit)")
+        lines.append("mutual_top1_pairs\t\(mutualPairCount)")
+        lines.append("unique_top1_targets\t\(Set(topTargets).count)")
+        lines.append("maximum_top1_reuse\t\(targetCounts.values.max() ?? 0)")
+        if !nearestDistances.isEmpty {
+            lines.append("nearest_distance_min\t\(nearestDistances.min() ?? 0)")
+            lines.append("nearest_distance_median\t\(percentile(nearestDistances, fraction: 0.5))")
+            lines.append("nearest_distance_mean\t\(nearestDistances.reduce(0, +) / Float(nearestDistances.count))")
+            lines.append("nearest_distance_p95\t\(percentile(nearestDistances, fraction: 0.95))")
+            lines.append("nearest_distance_max\t\(nearestDistances.max() ?? 0)")
+        }
+        lines.append("")
+
+        for (offset, anchor) in evaluation.anchors.enumerated() {
+            lines.append(
+                "ANCHOR\t\(offset + 1)\t\(tabSafe(anchor.fileName))\t\(tabSafe(relativePath(anchor.path, catalogURL: catalogURL)))",
+            )
+            lines.append("rank\tdistance\tsimilarity\tfile\tpath")
+            for neighbor in anchor.neighbors {
+                lines.append(
+                    "\(neighbor.rank)\t\(neighbor.distance)\t\(1 - neighbor.distance)\t\(tabSafe(neighbor.fileName))\t\(tabSafe(relativePath(neighbor.path, catalogURL: catalogURL)))",
+                )
+            }
+            lines.append("")
+        }
+    }
+
+    private static func similarityStatus(
+        requested: Bool,
+        record: SimilarityRecord?,
+        overallStatus: String,
+    ) -> String {
+        guard requested else { return "not_requested" }
+        if record?.error != nil { return "failed" }
+        if record?.evaluation != nil { return "completed" }
+        if overallStatus == "cancelled" { return "cancelled" }
+        if overallStatus == "running_similarity" { return "running" }
+        return "pending"
+    }
+
+    private static func percentile(_ values: [Float], fraction: Double) -> Float {
+        let sorted = values.sorted()
+        guard !sorted.isEmpty else { return 0 }
+        let index = Int((Double(sorted.count - 1) * fraction).rounded())
+        return sorted[min(max(index, 0), sorted.count - 1)]
     }
 
     private static func elapsedMilliseconds(since date: Date) -> Int {
