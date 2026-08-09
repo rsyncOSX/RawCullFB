@@ -1,5 +1,5 @@
 {
-  "originHash" : "c95fef1b1a153595a5ad4547201e1da1f4e53f68d918ffeb764bf81c81254a3f",
+  "originHash" : "f5413557eeef0323ea9ef7bc92305b5a07ccad5e0a391895577ef7930690ff88",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -25,6 +25,14 @@
       "state" : {
         "revision" : "a3a85a85214caf642abaa96ae664e4c772a59f6e",
         "version" : "1.4.1"
+      }
+    },
+    {
+      "identity" : "photoaikit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/PhotoAIKit",
+      "state" : {
+        "revision" : "428817edfb9b9b1dac6f6ce0b7be5492395b22ac"
       }
     },
     {
