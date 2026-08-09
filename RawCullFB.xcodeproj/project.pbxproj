@@ -173,7 +173,7 @@
 			mainGroup = FB0000010000000000000007;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
+				FA0000010000000000000001 /* XCLocalSwiftPackageReference "PhotoAIKit" */,
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
 				E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */,
@@ -540,14 +540,6 @@
 				version = 1.2.8;
 			};
 		};
-		FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
-			requirement = {
-				kind = revision;
-				revision = 1e2eaccd00947fbadda300e4a617842479cae7b9;
-			};
-		};
 		FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
@@ -557,6 +549,13 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		FA0000010000000000000001 /* XCLocalSwiftPackageReference "PhotoAIKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PhotoAIKit;
+		};
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */ = {
@@ -571,17 +570,17 @@
 		};
 		FA0000010000000000000002 /* CoreAICLIPBackend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = FA0000010000000000000001 /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAICLIPBackend;
 		};
 		FA0000010000000000000003 /* PhotoAIContracts */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = FA0000010000000000000001 /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIContracts;
 		};
 		FA0000010000000000000004 /* PhotoAIWorkflows */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FA0000010000000000000001 /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = FA0000010000000000000001 /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIWorkflows;
 		};
 		FB0000010000000000000011 /* RawCullCore */ = {

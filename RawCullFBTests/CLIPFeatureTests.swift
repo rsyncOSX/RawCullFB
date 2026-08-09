@@ -81,4 +81,73 @@ struct CLIPFeatureTests {
 
         #expect(names == ["first.jpg", "second.ARW"])
     }
+
+    @Test("SigLIP 2 bundle indexes and searches through RawCullFB")
+    func siglip2EndToEnd() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let bundlePath = environment["SIGLIP2_COREAI_BUNDLE"],
+              let referencePath = environment["SIGLIP2_REFERENCE"]
+        else {
+            return
+        }
+
+        let load = await CLIPModelManager().load(
+            url: URL(filePath: bundlePath, directoryHint: .isDirectory),
+        )
+        guard case let .available(_, _, modelName) = load.status,
+              let provider = load.provider
+        else {
+            Issue.record("RawCullFB rejected the SigLIP 2 model bundle")
+            return
+        }
+        #expect(modelName == "SigLIP2-Base-Patch16-256")
+        #expect(provider.backendDescriptor.backend == "siglip2")
+
+        let referenceURL = URL(filePath: referencePath)
+        let reference = try JSONDecoder().decode(
+            SigLIP2SearchReference.self,
+            from: Data(contentsOf: referenceURL),
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullFBSigLIP2-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        for (offset, item) in reference.images.enumerated() {
+            let source = URL(
+                filePath: item.path,
+                directoryHint: .notDirectory,
+                relativeTo: referenceURL.deletingLastPathComponent(),
+            ).standardizedFileURL
+            try FileManager.default.copyItem(
+                at: source,
+                to: root.appendingPathComponent("fixture-\(offset).jpg"),
+            )
+        }
+
+        let indexURL = CLIPIndexPaths.defaultIndexURL(
+            directory: root,
+            modelFingerprint: provider.backendDescriptor.modelFingerprint,
+        )
+        let engine = CLIPSearchEngine(
+            provider: provider,
+            indexStore: CLIPIndexStore(fileURL: indexURL),
+        )
+        let summary = try await engine.synchronize(directory: root)
+        let results = try await engine.search(text: "puffins portrait", limit: 10)
+
+        #expect(summary.discovered == reference.images.count)
+        #expect(summary.indexed == reference.images.count)
+        #expect(summary.failures.isEmpty)
+        #expect(results.count == reference.images.count)
+        #expect(await engine.hasCompatibleIndex())
+    }
+}
+
+private struct SigLIP2SearchReference: Decodable {
+    struct ImageItem: Decodable {
+        let path: String
+    }
+
+    let images: [ImageItem]
 }
