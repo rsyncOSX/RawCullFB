@@ -43,6 +43,9 @@ final class FileBrowserViewModel {
     var semanticSearchResults: [CLIPSearchResult] = []
     var semanticSearchActive = false
     var isSearching = false
+    var isRunningSemanticTest = false
+    var semanticTestProgress: SemanticSearchTestProgress?
+    var semanticTestOutcome: SemanticSearchTestOutcome?
     var hasCompatibleCLIPIndex = false
     var clipFeatureError: String?
     private var fileRatings: [CatalogFileRatingKey: Int] = [:]
@@ -64,10 +67,12 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var indexingTask: Task<Void, Never>?
     @ObservationIgnored private var indexValidationTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var semanticTestTask: Task<Void, Never>?
     @ObservationIgnored private var semanticFiles: [BrowserFileItem] = []
     @ObservationIgnored private var indexingID = UUID()
     @ObservationIgnored private var indexValidationID = UUID()
     @ObservationIgnored private var searchID = UUID()
+    @ObservationIgnored private var semanticTestID = UUID()
 
     var displayedFiles: [BrowserFileItem] {
         semanticSearchActive ? semanticFiles : files
@@ -81,11 +86,28 @@ final class FileBrowserViewModel {
     var semanticSearchLimit: Int { settings.semanticSearchLimit }
 
     var canIndexSelectedFolder: Bool {
-        selectedFolder != nil && clipProvider != nil && !isIndexing && !isSearching
+        selectedFolder != nil
+            && clipProvider != nil
+            && !isIndexing
+            && !isSearching
+            && !isRunningSemanticTest
     }
 
     var canSearch: Bool {
-        hasCompatibleCLIPIndex && clipEngine != nil && !isIndexing && !isSearching
+        hasCompatibleCLIPIndex
+            && clipEngine != nil
+            && !isIndexing
+            && !isSearching
+            && !isRunningSemanticTest
+    }
+
+    var canRunSemanticTest: Bool {
+        hasCompatibleCLIPIndex
+            && clipEngine != nil
+            && selectedFolder != nil
+            && !isIndexing
+            && !isSearching
+            && !isRunningSemanticTest
     }
 
     var selectedFile: BrowserFileItem? {
@@ -144,8 +166,10 @@ final class FileBrowserViewModel {
         indexingTask?.cancel()
         indexValidationTask?.cancel()
         searchTask?.cancel()
+        semanticTestTask?.cancel()
         indexingID = UUID()
         indexValidationID = UUID()
+        semanticTestID = UUID()
         settings.clipModelPath = nil
         settings.lastIndexedDirectoryPath = nil
         clipModelStatus = .notConfigured
@@ -156,6 +180,8 @@ final class FileBrowserViewModel {
         clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
         isIndexing = false
         isSearching = false
+        isRunningSemanticTest = false
+        semanticTestProgress = nil
         clearSemanticSearchResults()
         persistSettings()
     }
@@ -273,6 +299,7 @@ final class FileBrowserViewModel {
     }
 
     func startSemanticSearch() {
+        guard !isRunningSemanticTest else { return }
         let query = semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             clearSemanticSearchResults()
@@ -317,6 +344,89 @@ final class FileBrowserViewModel {
         }
     }
 
+    func startSemanticTest() {
+        guard let directory = selectedFolder?.url.standardizedFileURL,
+              let engine = clipEngine,
+              hasCompatibleCLIPIndex
+        else {
+            clipFeatureError = CLIPFeatureError.missingCompatibleIndex.description
+            return
+        }
+        guard case let .available(_, fingerprint, modelName) = clipModelStatus else {
+            clipFeatureError = CLIPFeatureError.modelNotConfigured.description
+            return
+        }
+
+        semanticTestTask?.cancel()
+        searchTask?.cancel()
+        searchTask = nil
+        searchID = UUID()
+        isSearching = false
+
+        let operationID = UUID()
+        let limit = settings.semanticSearchLimit
+        semanticTestID = operationID
+        isRunningSemanticTest = true
+        semanticTestProgress = nil
+        semanticTestOutcome = nil
+        clipFeatureError = nil
+
+        semanticTestTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let outcome = try await SemanticSearchTestRunner.run(
+                    directory: directory,
+                    modelName: modelName,
+                    modelFingerprint: fingerprint,
+                    resultLimit: limit,
+                    search: { [weak self] query, resultLimit in
+                        let results = try await engine.search(
+                            text: query,
+                            limit: resultLimit,
+                        )
+                        await self?.publishSemanticTestResults(
+                            query: query,
+                            results: results,
+                            operationID: operationID,
+                        )
+                        return results
+                    },
+                    similarity: { neighborLimit in
+                        try await engine.evaluateImageSimilarity(
+                            neighborLimit: neighborLimit,
+                        )
+                    },
+                    progress: { [weak self] progress in
+                        await self?.publishSemanticTestProgress(
+                            progress,
+                            operationID: operationID,
+                        )
+                    },
+                )
+                guard self.semanticTestID == operationID else { return }
+                self.semanticTestOutcome = outcome
+            } catch is CancellationError {
+                // The runner writes its last completed query before cancellation.
+            } catch {
+                guard self.semanticTestID == operationID else { return }
+                self.clipFeatureError = error.localizedDescription
+            }
+
+            guard self.semanticTestID == operationID else { return }
+            self.isRunningSemanticTest = false
+            self.semanticTestProgress = nil
+            self.semanticTestTask = nil
+        }
+    }
+
+    func cancelSemanticTest() {
+        semanticTestID = UUID()
+        semanticTestTask?.cancel()
+        semanticTestTask = nil
+        isRunningSemanticTest = false
+        semanticTestProgress = nil
+    }
+
     func clearSemanticSearchResults(keepingQuery: Bool = false) {
         searchID = UUID()
         searchTask?.cancel()
@@ -331,6 +441,32 @@ final class FileBrowserViewModel {
         selectedFileID = files.first?.id
         selectedFileIDs = Set(files.first.map { [$0.id] } ?? [])
         selectionAnchorFileID = files.first?.id
+    }
+
+    private func publishSemanticTestProgress(
+        _ progress: SemanticSearchTestProgress,
+        operationID: UUID,
+    ) {
+        guard semanticTestID == operationID else { return }
+        semanticTestProgress = progress
+        if let query = progress.currentQuery {
+            semanticSearchQuery = query
+        }
+    }
+
+    private func publishSemanticTestResults(
+        query: String,
+        results: [CLIPSearchResult],
+        operationID: UUID,
+    ) {
+        guard semanticTestID == operationID else { return }
+        semanticSearchQuery = query
+        semanticSearchActive = true
+        semanticSearchResults = results
+        semanticFiles = results.map { BrowserFileItem(url: $0.url) }
+        selectedFileID = semanticFiles.first?.id
+        selectedFileIDs = Set(semanticFiles.first.map { [$0.id] } ?? [])
+        selectionAnchorFileID = semanticFiles.first?.id
     }
 
     func setRatingPinsEnabled(_ isEnabled: Bool) {
@@ -910,9 +1046,11 @@ final class FileBrowserViewModel {
         indexingTask?.cancel()
         indexValidationTask?.cancel()
         searchTask?.cancel()
+        semanticTestTask?.cancel()
         indexingID = UUID()
         indexValidationID = UUID()
         searchID = UUID()
+        semanticTestID = UUID()
         clipModelStatus = .checking(url)
         clipProvider = nil
         clipEngine = nil
@@ -921,6 +1059,8 @@ final class FileBrowserViewModel {
         clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
         isIndexing = false
         isSearching = false
+        isRunningSemanticTest = false
+        semanticTestProgress = nil
         clipFeatureError = nil
         clearSemanticSearchResults()
 
@@ -990,15 +1130,19 @@ final class FileBrowserViewModel {
         indexingTask?.cancel()
         indexValidationTask?.cancel()
         searchTask?.cancel()
+        semanticTestTask?.cancel()
         indexingID = UUID()
         indexValidationID = UUID()
         searchID = UUID()
+        semanticTestID = UUID()
         clipEngine = nil
         clipEngineDirectoryURL = nil
         clipIndexStatus = .noFolderSelected
         hasCompatibleCLIPIndex = false
         isIndexing = false
+        isRunningSemanticTest = false
         indexingProgress = nil
+        semanticTestProgress = nil
         clearSemanticSearchResults()
     }
 

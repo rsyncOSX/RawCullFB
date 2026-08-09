@@ -98,7 +98,11 @@ struct FileBrowserView: View {
             TextField("Semantic search", text: $viewModel.semanticSearchQuery)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
-                .disabled(!viewModel.hasCompatibleCLIPIndex || viewModel.isIndexing)
+                .disabled(
+                    !viewModel.hasCompatibleCLIPIndex
+                        || viewModel.isIndexing
+                        || viewModel.isRunningSemanticTest,
+                )
                 .onSubmit {
                     viewModel.startSemanticSearch()
                 }
@@ -117,7 +121,10 @@ struct FileBrowserView: View {
                 Label("Decrease Results by 10", systemImage: "minus")
             }
             .labelStyle(.iconOnly)
-            .disabled(viewModel.semanticSearchLimit <= 10)
+            .disabled(
+                viewModel.semanticSearchLimit <= 10
+                    || viewModel.isRunningSemanticTest,
+            )
             .help("Decrease the semantic result limit by 10")
 
             Text(viewModel.semanticSearchLimit, format: .number)
@@ -131,16 +138,59 @@ struct FileBrowserView: View {
                 Label("Increase Results by 10", systemImage: "plus")
             }
             .labelStyle(.iconOnly)
-            .disabled(viewModel.semanticSearchLimit >= 500)
+            .disabled(
+                viewModel.semanticSearchLimit >= 500
+                    || viewModel.isRunningSemanticTest,
+            )
             .help("Increase the semantic result limit by 10")
 
-            if viewModel.isShowingSemanticResults {
+            if viewModel.isShowingSemanticResults, !viewModel.isRunningSemanticTest {
                 Button {
                     viewModel.clearSemanticSearchResults()
                 } label: {
                     Label("Clear Search", systemImage: "xmark.circle")
                 }
                 .help("Clear semantic search results")
+            }
+
+            if viewModel.isRunningSemanticTest {
+                Button(role: .cancel) {
+                    viewModel.cancelSemanticTest()
+                } label: {
+                    Label("Cancel Model Test", systemImage: "stop.circle")
+                }
+                .help("Stop after preserving all completed model test results")
+
+                if let progress = viewModel.semanticTestProgress {
+                    Text(
+                        "\(progress.completedQueryCount)/\(progress.totalQueryCount)",
+                        comment: "Completed semantic test queries followed by total queries.",
+                    )
+                    .font(.caption.monospacedDigit())
+                    .help(progress.currentQuery ?? "Comparing indexed images")
+                    .accessibilityLabel("Model test progress")
+                    .accessibilityValue(
+                        "\(progress.completedQueryCount) of \(progress.totalQueryCount) queries completed",
+                    )
+                }
+            } else {
+                Button {
+                    viewModel.startSemanticTest()
+                } label: {
+                    Label("Run Model Test", systemImage: "checklist")
+                }
+                .disabled(!viewModel.canRunSemanticTest)
+                .help("Run semantic queries, compare every indexed image, and save model-prefixed results")
+
+                if let outcome = viewModel.semanticTestOutcome {
+                    Text("Test \(outcome.completedQueryCount)/\(outcome.totalQueryCount)")
+                        .font(.caption.monospacedDigit())
+                        .help("Results saved to \(outcome.resultFileURL.lastPathComponent)")
+                        .accessibilityLabel("Last model test result")
+                        .accessibilityValue(
+                            "\(outcome.completedQueryCount) of \(outcome.totalQueryCount) queries saved",
+                        )
+                }
             }
 
             Button(role: .destructive) {
@@ -175,10 +225,14 @@ struct FileBrowserView: View {
                 ProgressView()
                     .controlSize(.small)
                     .help("Creating 200px memory thumbnails")
-            } else if viewModel.isSearching {
+            } else if viewModel.isSearching || viewModel.isRunningSemanticTest {
                 ProgressView()
                     .controlSize(.small)
-                    .help("Searching the CLIP index")
+                    .help(
+                        viewModel.isRunningSemanticTest
+                            ? "Running semantic test queries"
+                            : "Searching the CLIP index",
+                    )
             } else if viewModel.copyProgress.isActive {
                 ProgressView()
                     .controlSize(.small)
