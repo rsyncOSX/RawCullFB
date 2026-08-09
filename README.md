@@ -52,6 +52,12 @@ The model reports as `SigLIP2-Base-Patch16-256`. Its index uses the `siglip2` ba
 
 RawCullFB stores one model-specific index at `.clipbench/clip-<model-hash>.clipindex` inside the selected root. Source photographs are not modified. Model inference, embeddings, and search stay on the Mac.
 
+### Semantic test mode
+
+Place a UTF-8 file named `semantictest.txt` in the selected photo-folder root, with one semantic query per line. Empty lines and lines beginning with `#` are ignored. After selecting and indexing a model, choose **Run Semantic Test** in the main toolbar.
+
+RawCullFB executes the queries sequentially using the current result limit and displays each completed result set. It atomically updates `<model-name>-semantic-test-results.txt` in the same folder after every query. The report contains model identity, timing, scores, ranks, and paths relative to the selected root. **Cancel Semantic Test** preserves all completed queries. Rerunning the same model replaces that model's previous report.
+
 Semantic similarity is a retrieval aid, not a statement of fact. Results may be inaccurate, incomplete, biased, or unexpected and should not be used for safety-critical or other high-impact decisions.
 
 ## Requirements
