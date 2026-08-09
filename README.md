@@ -1,12 +1,12 @@
 # RawCullFB
 
-RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic search. It preserves the normal folder browser, ratings, copying, and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
+RawCullFB is a macOS SwiftUI photo browser with local CLIP or SigLIP 2 indexing and semantic search. It preserves the normal folder browser, ratings, copying, and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
 
 ## Requirements
 
 - macOS 27 or later
 - **Apple Silicon** (M-series) only
-- A compatible Core AI CLIP model bundle selected by the user
+- A compatible Core AI CLIP or fixed-resolution SigLIP 2 model bundle selected by the user
 
 ## Features
 
@@ -20,6 +20,26 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
+
+## SigLIP 2 test bundle
+
+The development project uses the sibling `../PhotoAIKit` checkout so the experimental SigLIP 2 runtime can be tested before publishing a PhotoAIKit release. Generate the bundle with:
+
+```sh
+cd ../PhotoAIKit
+uv run Tools/export_siglip2.py \
+  --source-dir ../../Models/SigLIP2-Base-Patch16-256/source \
+  --output-dir ../../Models/SigLIP2-Base-Patch16-256 \
+  --overwrite
+```
+
+In **RawCullFB > Settings > CLIP**, select:
+
+```text
+../../Models/SigLIP2-Base-Patch16-256/SigLIP2-Base-Patch16-256
+```
+
+The model reports as `SigLIP2-Base-Patch16-256`. Its index uses the `siglip2` backend plus the model fingerprint, so RawCullFB will not mix it with an existing OpenAI CLIP or DataComp CLIP index. Re-index the selected photo folder before comparing searches.
 
 ## CLIP workflow
 

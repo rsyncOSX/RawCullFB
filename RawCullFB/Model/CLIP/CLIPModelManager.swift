@@ -28,7 +28,9 @@ actor CLIPModelManager {
             do {
                 let provider = try CoreAICLIPProvider.factory.makeProvider(from: resource)
                 let configuration = provider.runtimeConfiguration
-                let name = configuration.pretrained ?? configuration.architecture
+                let name = provider.semanticBackend == "siglip2"
+                    ? configuration.architecture
+                    : configuration.pretrained ?? configuration.architecture
                 return CLIPModelLoad(
                     status: .available(
                         url: resource.bundleURL,
