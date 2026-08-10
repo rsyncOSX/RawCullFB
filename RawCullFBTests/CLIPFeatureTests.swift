@@ -1,16 +1,16 @@
 import Foundation
-import Testing
 @testable import RawCullFB
+import Testing
 
 @Suite("CLIP feature")
 struct CLIPFeatureTests {
-    @Test("Semantic result limit defaults to 50")
-    func defaultResultLimit() {
+    @Test
+    func `Semantic result limit defaults to 50`() {
         #expect(BrowserSettings().semanticSearchLimit == 50)
     }
 
-    @Test("Decoded semantic result limit is bounded")
-    func decodedResultLimitIsBounded() throws {
+    @Test
+    func `Decoded semantic result limit is bounded`() throws {
         let tooSmall = try JSONDecoder().decode(
             BrowserSettings.self,
             from: Data(#"{"semanticSearchLimit":-20}"#.utf8),
@@ -24,8 +24,8 @@ struct CLIPFeatureTests {
         #expect(tooLarge.semanticSearchLimit == 500)
     }
 
-    @Test("Index paths are hidden and model-specific")
-    func indexPathsAreModelSpecific() {
+    @Test
+    func `Index paths are hidden and model-specific`() {
         let directory = URL(filePath: "/tmp/photos", directoryHint: .isDirectory)
         let first = CLIPIndexPaths.defaultIndexURL(
             directory: directory,
@@ -41,8 +41,8 @@ struct CLIPFeatureTests {
         #expect(first.pathExtension == "clipindex")
     }
 
-    @Test("Only current or partially outdated indexes allow search")
-    func indexStatusSearchAvailability() {
+    @Test
+    func `Only current or partially outdated indexes allow search`() {
         let directory = URL(filePath: "/tmp/photos", directoryHint: .isDirectory)
         let updatedAt = Date(timeIntervalSince1970: 1)
         let valid = CLIPIndexStatus.valid(directory: directory, indexed: 10, updatedAt: updatedAt)
@@ -63,8 +63,8 @@ struct CLIPFeatureTests {
         #expect(!CLIPIndexStatus.invalid(directory: directory, reason: "bad index").allowsSearch)
     }
 
-    @Test("Discovery is recursive and ignores hidden or unsupported files")
-    func recursiveDiscovery() throws {
+    @Test
+    func `Discovery is recursive and ignores hidden or unsupported files`() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullFBTests-\(UUID().uuidString)", isDirectory: true)
         let nested = root.appendingPathComponent("nested", isDirectory: true)
@@ -82,8 +82,8 @@ struct CLIPFeatureTests {
         #expect(names == ["first.jpg", "second.ARW"])
     }
 
-    @Test("SigLIP 2 bundle indexes and searches through RawCullFB")
-    func siglip2EndToEnd() async throws {
+    @Test
+    func `SigLIP 2 bundle indexes and searches through RawCullFB`() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard let bundlePath = environment["SIGLIP2_COREAI_BUNDLE"],
               let referencePath = environment["SIGLIP2_REFERENCE"]

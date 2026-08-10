@@ -10,7 +10,11 @@ nonisolated enum CLIPModelStatus: Equatable, Sendable {
     case invalid(url: URL, reason: String)
 
     var isAvailable: Bool {
-        if case .available = self { true } else { false }
+        if case .available = self {
+            true
+        } else {
+            false
+        }
     }
 }
 

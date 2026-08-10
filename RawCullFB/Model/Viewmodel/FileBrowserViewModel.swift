@@ -44,6 +44,9 @@ final class FileBrowserViewModel {
     var semanticSearchActive = false
     var isSearching = false
     var isRunningSemanticTest = false
+
+    let addSemanticTest = false
+
     var semanticTestProgress: SemanticSearchTestProgress?
     var semanticTestOutcome: SemanticSearchTestOutcome?
     var hasCompatibleCLIPIndex = false
@@ -82,8 +85,13 @@ final class FileBrowserViewModel {
         semanticSearchActive
     }
 
-    var clipModelPath: String? { settings.clipModelPath }
-    var semanticSearchLimit: Int { settings.semanticSearchLimit }
+    var clipModelPath: String? {
+        settings.clipModelPath
+    }
+
+    var semanticSearchLimit: Int {
+        settings.semanticSearchLimit
+    }
 
     var canIndexSelectedFolder: Bool {
         selectedFolder != nil
@@ -192,8 +200,7 @@ final class FileBrowserViewModel {
         settings.semanticSearchLimit = adjusted
         persistSettings()
         if !semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           hasCompatibleCLIPIndex
-        {
+           hasCompatibleCLIPIndex {
             startSemanticSearch()
         }
     }
@@ -1037,8 +1044,8 @@ final class FileBrowserViewModel {
         return destination.appendingPathComponent(fallbackName)
     }
 
-    private func startSecurityScopedAccess(for url: URL) -> Bool {
-        return true
+    private func startSecurityScopedAccess(for _: URL) -> Bool {
+        true
     }
 
     private func validateCLIPModel(at url: URL) {
@@ -1073,8 +1080,7 @@ final class FileBrowserViewModel {
             if self.selectedFolder != nil {
                 self.validateSelectedFolderCLIPIndex()
             } else if let provider = load.provider,
-               let directoryPath = self.settings.lastIndexedDirectoryPath
-            {
+                      let directoryPath = self.settings.lastIndexedDirectoryPath {
                 await self.restoreCLIPEngine(
                     provider: provider,
                     directory: URL(filePath: directoryPath),

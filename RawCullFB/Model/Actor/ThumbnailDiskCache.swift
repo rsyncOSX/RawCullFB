@@ -3,8 +3,8 @@ import CryptoKit
 import Foundation
 import ImageIO
 import OSLog
-import UniformTypeIdentifiers
 import RawParserKit
+import UniformTypeIdentifiers
 
 actor ThumbnailDiskCache {
     private static let cacheKeyVersion = "v2-oriented-thumbnails"

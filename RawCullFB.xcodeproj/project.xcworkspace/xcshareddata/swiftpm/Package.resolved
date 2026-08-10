@@ -1,5 +1,5 @@
 {
-  "originHash" : "f5413557eeef0323ea9ef7bc92305b5a07ccad5e0a391895577ef7930690ff88",
+  "originHash" : "9501c12d257c998eea452f6a9193e0de76bf67a2917a1b5f99115d355467a2ad",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattt/EventSource.git",
       "state" : {
-        "revision" : "a3a85a85214caf642abaa96ae664e4c772a59f6e",
-        "version" : "1.4.1"
+        "revision" : "e146002f57ea2abbf4803cb58c22a7b5d20395c6",
+        "version" : "1.4.2"
       }
     },
     {
@@ -47,7 +47,7 @@
     {
       "identity" : "rawparserkit",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawParserKit",
+      "location" : "https://github.com/rsyncOSX/RawParserKit.git",
       "state" : {
         "revision" : "0576a7cfbbdb48a5e0cd34569f2fce53e6d72a54",
         "version" : "1.2.8"
@@ -140,7 +140,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "1819601ee311e48787ff32b2a27aa53b3835d313"
+        "revision" : "ba00e8bd4d85be96a2fe8cdc561cb08bed899db6"
       }
     },
     {
