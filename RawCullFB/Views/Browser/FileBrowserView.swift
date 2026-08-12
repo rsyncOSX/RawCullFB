@@ -153,43 +153,45 @@ struct FileBrowserView: View {
                 .help("Clear semantic search results")
             }
 
-            if viewModel.isRunningSemanticTest {
-                Button(role: .cancel) {
-                    viewModel.cancelSemanticTest()
-                } label: {
-                    Label("Cancel Model Test", systemImage: "stop.circle")
-                }
-                .help("Stop after preserving all completed model test results")
+            if viewModel.addSemanticTest {
+                if viewModel.isRunningSemanticTest {
+                    Button(role: .cancel) {
+                        viewModel.cancelSemanticTest()
+                    } label: {
+                        Label("Cancel Model Test", systemImage: "stop.circle")
+                    }
+                    .help("Stop after preserving all completed model test results")
 
-                if let progress = viewModel.semanticTestProgress {
-                    Text(
-                        "\(progress.completedQueryCount)/\(progress.totalQueryCount)",
-                        comment: "Completed semantic test queries followed by total queries.",
-                    )
-                    .font(.caption.monospacedDigit())
-                    .help(progress.currentQuery ?? "Comparing indexed images")
-                    .accessibilityLabel("Model test progress")
-                    .accessibilityValue(
-                        "\(progress.completedQueryCount) of \(progress.totalQueryCount) queries completed",
-                    )
-                }
-            } else {
-                Button {
-                    viewModel.startSemanticTest()
-                } label: {
-                    Label("Run Model Test", systemImage: "checklist")
-                }
-                .disabled(!viewModel.canRunSemanticTest)
-                .help("Run semantic queries, compare every indexed image, and save model-prefixed results")
-
-                if let outcome = viewModel.semanticTestOutcome {
-                    Text("Test \(outcome.completedQueryCount)/\(outcome.totalQueryCount)")
-                        .font(.caption.monospacedDigit())
-                        .help("Results saved to \(outcome.resultFileURL.lastPathComponent)")
-                        .accessibilityLabel("Last model test result")
-                        .accessibilityValue(
-                            "\(outcome.completedQueryCount) of \(outcome.totalQueryCount) queries saved",
+                    if let progress = viewModel.semanticTestProgress {
+                        Text(
+                            "\(progress.completedQueryCount)/\(progress.totalQueryCount)",
+                            comment: "Completed semantic test queries followed by total queries.",
                         )
+                        .font(.caption.monospacedDigit())
+                        .help(progress.currentQuery ?? "Comparing indexed images")
+                        .accessibilityLabel("Model test progress")
+                        .accessibilityValue(
+                            "\(progress.completedQueryCount) of \(progress.totalQueryCount) queries completed",
+                        )
+                    }
+                } else {
+                    Button {
+                        viewModel.startSemanticTest()
+                    } label: {
+                        Label("Run Model Test", systemImage: "checklist")
+                    }
+                    .disabled(!viewModel.canRunSemanticTest)
+                    .help("Run semantic queries, compare every indexed image, and save model-prefixed results")
+
+                    if let outcome = viewModel.semanticTestOutcome {
+                        Text("Test \(outcome.completedQueryCount)/\(outcome.totalQueryCount)")
+                            .font(.caption.monospacedDigit())
+                            .help("Results saved to \(outcome.resultFileURL.lastPathComponent)")
+                            .accessibilityLabel("Last model test result")
+                            .accessibilityValue(
+                                "\(outcome.completedQueryCount) of \(outcome.totalQueryCount) queries saved",
+                            )
+                    }
                 }
             }
 

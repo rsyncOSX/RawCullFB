@@ -107,12 +107,16 @@ private struct CLIPModelStatusView: View {
         switch status {
         case .notConfigured:
             "Choose a compatible CLIP model bundle."
+
         case let .checking(url):
             "Verifying \(url.path)"
+
         case let .available(_, fingerprint, modelName):
             "Valid \(modelName) model (\(fingerprint))"
+
         case let .missing(url):
             "No model bundle found at \(url.path)"
+
         case let .invalid(url, reason):
             "Invalid model at \(url.path): \(reason)"
         }

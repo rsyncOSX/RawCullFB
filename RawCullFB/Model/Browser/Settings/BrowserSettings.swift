@@ -53,8 +53,8 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
         enableRatingPins = try container.decodeIfPresent(Bool.self, forKey: .enableRatingPins) ?? enableRatingPins
         clipModelPath = try container.decodeIfPresent(String.self, forKey: .clipModelPath)
-        semanticSearchLimit = min(
-            max(try container.decodeIfPresent(Int.self, forKey: .semanticSearchLimit) ?? semanticSearchLimit, 10),
+        semanticSearchLimit = try min(
+            max(container.decodeIfPresent(Int.self, forKey: .semanticSearchLimit) ?? semanticSearchLimit, 10),
             500,
         )
         lastIndexedDirectoryPath = try container.decodeIfPresent(String.self, forKey: .lastIndexedDirectoryPath)

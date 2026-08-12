@@ -1,11 +1,11 @@
 import Foundation
-import Testing
 @testable import RawCullFB
+import Testing
 
 @Suite("Semantic search test runner")
 struct SemanticSearchTestRunnerTests {
-    @Test("Runs queries sequentially and updates a model-prefixed report")
-    func runsSequentiallyAndUpdatesReport() async throws {
+    @Test
+    func `Runs queries sequentially and updates a model-prefixed report`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "RawCullFBSemanticTest-\(UUID().uuidString)",
             isDirectory: true,
@@ -54,7 +54,7 @@ struct SemanticSearchTestRunnerTests {
                                     distance: 0.1,
                                     fileName: "second.jpg",
                                     path: directory.appendingPathComponent("second.jpg").path,
-                                ),
+                                )
                             ],
                         ),
                         CLIPSimilarityAnchorResult(
@@ -66,7 +66,7 @@ struct SemanticSearchTestRunnerTests {
                                     distance: 0.1,
                                     fileName: "first.jpg",
                                     path: directory.appendingPathComponent("first.jpg").path,
-                                ),
+                                )
                             ],
                         ),
                         CLIPSimilarityAnchorResult(
@@ -78,9 +78,9 @@ struct SemanticSearchTestRunnerTests {
                                     distance: 0.4,
                                     fileName: "first.jpg",
                                     path: directory.appendingPathComponent("first.jpg").path,
-                                ),
+                                )
                             ],
-                        ),
+                        )
                     ],
                 )
             },
@@ -98,7 +98,7 @@ struct SemanticSearchTestRunnerTests {
         #expect(recordedQueries == [
             "a dog",
             "a red car",
-            "a city street at night",
+            "a city street at night"
         ])
         #expect(recordedLimits == [10, 10, 10])
 
@@ -121,8 +121,8 @@ struct SemanticSearchTestRunnerTests {
         #expect(snapshots.dropFirst().allSatisfy { $0.reportExists })
     }
 
-    @Test("Records a failed query and continues")
-    func recordsFailureAndContinues() async throws {
+    @Test
+    func `Records a failed query and continues`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "RawCullFBSemanticFailure-\(UUID().uuidString)",
             isDirectory: true,
@@ -142,7 +142,9 @@ struct SemanticSearchTestRunnerTests {
             modelFingerprint: "openai",
             resultLimit: 5,
             search: { query, _ in
-                if query == "fail" { throw SemanticTestFailure.expected }
+                if query == "fail" {
+                    throw SemanticTestFailure.expected
+                }
                 return []
             },
         )

@@ -23,8 +23,10 @@ nonisolated enum SemanticSearchTestRunnerError: Error, LocalizedError, Sendable 
         switch self {
         case let .missingInputFile(url):
             "Semantic test input was not found at \(url.path)."
+
         case let .unreadableInputFile(url):
             "Semantic test input is not valid UTF-8 text: \(url.path)."
+
         case let .noQueries(url):
             "Semantic test input contains no queries: \(url.path)."
         }
@@ -236,7 +238,7 @@ nonisolated enum SemanticSearchTestRunner {
             "completed_queries\t\(records.count)",
             "total_queries\t\(totalQueryCount)",
             "similarity_status\t\(similarityStatus(requested: similarityRequested, record: similarityRecord, overallStatus: status))",
-            "",
+            ""
         ]
 
         for (offset, record) in records.enumerated() {
@@ -333,10 +335,18 @@ nonisolated enum SemanticSearchTestRunner {
         overallStatus: String,
     ) -> String {
         guard requested else { return "not_requested" }
-        if record?.error != nil { return "failed" }
-        if record?.evaluation != nil { return "completed" }
-        if overallStatus == "cancelled" { return "cancelled" }
-        if overallStatus == "running_similarity" { return "running" }
+        if record?.error != nil {
+            return "failed"
+        }
+        if record?.evaluation != nil {
+            return "completed"
+        }
+        if overallStatus == "cancelled" {
+            return "cancelled"
+        }
+        if overallStatus == "running_similarity" {
+            return "running"
+        }
         return "pending"
     }
 
@@ -348,7 +358,7 @@ nonisolated enum SemanticSearchTestRunner {
     }
 
     private static func elapsedMilliseconds(since date: Date) -> Int {
-        max(0, Int(Date().timeIntervalSince(date) * 1_000))
+        max(0, Int(Date().timeIntervalSince(date) * 1000))
     }
 
     private static func relativePath(_ path: String, catalogURL: URL) -> String {

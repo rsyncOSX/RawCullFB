@@ -47,7 +47,7 @@ nonisolated enum CLIPIndexStatus: Equatable, Sendable {
         missing: Int,
         changed: Int,
         removed: Int,
-        updatedAt: Date
+        updatedAt: Date,
     )
     case invalid(directory: URL, reason: String)
 
@@ -59,7 +59,11 @@ nonisolated enum CLIPIndexStatus: Equatable, Sendable {
     }
 
     var recommendsUpdate: Bool {
-        if case .needsUpdate = self { true } else { false }
+        if case .needsUpdate = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -69,8 +73,13 @@ nonisolated struct CLIPSearchResult: Equatable, Identifiable, Sendable {
     let fileName: String
     let path: String
 
-    var id: String { path }
-    var url: URL { URL(filePath: path) }
+    var id: String {
+        path
+    }
+
+    var url: URL {
+        URL(filePath: path)
+    }
 }
 
 nonisolated struct CLIPSimilarityNeighbor: Equatable, Sendable {
@@ -94,7 +103,7 @@ nonisolated struct CLIPSimilarityEvaluation: Equatable, Sendable {
     let anchors: [CLIPSimilarityAnchorResult]
 }
 
-nonisolated final class CLIPSearchEngine: Sendable {
+final nonisolated class CLIPSearchEngine: Sendable {
     let provider: CoreAICLIPProvider
     let indexStore: CLIPIndexStore
     let decoder: CLIPImageDecoder
@@ -113,7 +122,7 @@ nonisolated final class CLIPSearchEngine: Sendable {
     }
 
     func hasCompatibleIndex() async -> Bool {
-        (try? await indexStore.load(compatibleWith: provider.backendDescriptor)) != nil
+        await (try? indexStore.load(compatibleWith: provider.backendDescriptor)) != nil
     }
 
     func validateIndex(directory: URL) async -> CLIPIndexStatus {
@@ -154,8 +163,7 @@ nonisolated final class CLIPSearchEngine: Sendable {
                     continue
                 }
                 if entry.fingerprint != fingerprint
-                    || !entry.artifact.descriptor.matches(provider.backendDescriptor)
-                {
+                    || !entry.artifact.descriptor.matches(provider.backendDescriptor) {
                     changed += 1
                 }
             }
@@ -205,8 +213,7 @@ nonisolated final class CLIPSearchEngine: Sendable {
             let fingerprint = SourceFingerprint(source: source)
             if let existing = oldEntries[fingerprint.standardizedPath],
                existing.fingerprint == fingerprint,
-               existing.artifact.descriptor.matches(provider.backendDescriptor)
-            {
+               existing.artifact.descriptor.matches(provider.backendDescriptor) {
                 entries.append(CLIPIndexEntry(
                     source: source,
                     fingerprint: fingerprint,
@@ -276,10 +283,12 @@ nonisolated final class CLIPSearchEngine: Sendable {
         }
         let textEmbedding = try await provider.embedding(for: text)
         let scored = try index.entries.map { entry in
-            (entry, try provider.similarity(image: entry.artifact, text: textEmbedding))
+            try (entry, provider.similarity(image: entry.artifact, text: textEmbedding))
         }
         .sorted {
-            if $0.1 == $1.1 { return $0.0.source.url.path < $1.0.source.url.path }
+            if $0.1 == $1.1 {
+                return $0.0.source.url.path < $1.0.source.url.path
+            }
             return $0.1 > $1.1
         }
         return scored.prefix(max(0, limit)).enumerated().map { offset, item in
@@ -406,7 +415,9 @@ nonisolated final class CLIPSearchEngine: Sendable {
             }
             return candidates[left].distance < candidates[right].distance
         }
-        if let worstIndex { candidates.remove(at: worstIndex) }
+        if let worstIndex {
+            candidates.remove(at: worstIndex)
+        }
     }
 }
 

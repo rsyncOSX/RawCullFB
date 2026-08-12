@@ -6,7 +6,7 @@ import RawParserKit
 
 nonisolated enum CLIPImageDiscovery {
     static let supportedExtensions: Set<String> = [
-        "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "arw",
+        "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "arw"
     ]
 
     static func sources(in directory: URL) throws -> [AIImageSource] {
@@ -63,7 +63,7 @@ nonisolated struct CLIPImageDecoder: ImageDecoding {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: thumbnailMaximumPixelSize,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(
             imageSource,

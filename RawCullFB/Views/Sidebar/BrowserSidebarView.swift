@@ -119,8 +119,10 @@ private struct SidebarIndexPanel: View {
         switch viewModel.clipIndexStatus {
         case .noFolderSelected:
             statusLabel("Select a folder to check its index", systemImage: "folder", color: .secondary)
+
         case .modelRequired:
             statusLabel("Set and verify a CLIP model in Settings", systemImage: "exclamationmark.triangle", color: .orange)
+
         case .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -128,13 +130,16 @@ private struct SidebarIndexPanel: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+
         case .notFound:
             statusLabel("No index found", systemImage: "circle.dashed", color: .secondary)
+
         case let .valid(_, indexed, updatedAt):
             VStack(alignment: .leading, spacing: 2) {
                 statusLabel("Valid index · \(indexed) images", systemImage: "checkmark.circle.fill", color: .green)
                 updatedLabel(updatedAt)
             }
+
         case let .needsUpdate(_, indexed, missing, changed, removed, updatedAt):
             VStack(alignment: .leading, spacing: 3) {
                 statusLabel("Update recommended", systemImage: "exclamationmark.triangle.fill", color: .orange)
@@ -144,6 +149,7 @@ private struct SidebarIndexPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
                 updatedLabel(updatedAt)
             }
+
         case let .invalid(_, reason):
             VStack(alignment: .leading, spacing: 2) {
                 statusLabel("Invalid index", systemImage: "xmark.octagon.fill", color: .red)
@@ -199,9 +205,15 @@ private struct SidebarIndexPanel: View {
 
     private func updateDetails(indexed: Int, missing: Int, changed: Int, removed: Int) -> String {
         var changes: [String] = []
-        if missing > 0 { changes.append("\(missing) missing") }
-        if changed > 0 { changes.append("\(changed) changed") }
-        if removed > 0 { changes.append("\(removed) removed") }
+        if missing > 0 {
+            changes.append("\(missing) missing")
+        }
+        if changed > 0 {
+            changes.append("\(changed) changed")
+        }
+        if removed > 0 {
+            changes.append("\(removed) removed")
+        }
         return "\(indexed) indexed · \(changes.joined(separator: ", "))."
     }
 }
