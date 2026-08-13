@@ -121,7 +121,7 @@ final class FileBrowserViewModel {
     }
 
     var isSidebarSelectionEnabled: Bool {
-        !isCreatingThumbnails && !isIndexing
+        !isCreatingThumbnails
     }
 
     var title: String {
@@ -215,7 +215,7 @@ final class FileBrowserViewModel {
                     await self?.publishIndexingProgress(progress, operationID: operationID)
                 }
                 try Task.checkCancellation()
-                guard self.indexingID == operationID, self.clipEngineDirectoryURL == directory else { return }
+                guard self.indexingID == operationID else { return }
                 self.lastIndexSummary = summary
                 self.settings.lastIndexedDirectoryPath = directory.path
                 self.persistSettings()
@@ -225,7 +225,7 @@ final class FileBrowserViewModel {
                 guard !Task.isCancelled, self.indexingID == operationID else { return }
                 self.clipFeatureError = String(describing: error)
             }
-            guard self.indexingID == operationID, self.clipEngineDirectoryURL == directory else { return }
+            guard self.indexingID == operationID else { return }
             self.isIndexing = false
             self.indexingProgress = nil
             self.indexingTask = nil
@@ -859,7 +859,7 @@ final class FileBrowserViewModel {
         return CLIPSearchEngine(
             provider: provider,
             indexStore: CLIPIndexStore(fileURL: indexURL),
-            concurrencyLimit: 2,
+            concurrencyLimit: 1,
         )
     }
 

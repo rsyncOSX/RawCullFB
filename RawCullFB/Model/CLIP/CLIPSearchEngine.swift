@@ -194,7 +194,7 @@ final nonisolated class CLIPSearchEngine: Sendable {
         }
     }
 
-    func synchronize(
+    @concurrent func synchronize(
         directory: URL,
         progress: (@Sendable (CLIPIndexingProgress) async -> Void)? = nil,
     ) async throws -> CLIPIndexSummary {
