@@ -33,15 +33,6 @@ struct BrowserZoomOverlayView: View {
                                 containerSize: geometry.size,
                             )
                         }
-
-                        if viewModel.settings.enableRatingPins,
-                           let rating = viewModel.rating(for: viewModel.selectedFile) {
-                            ZoomImageRatingBadge(
-                                rating: rating,
-                                imageSize: CGSize(width: image.width, height: image.height),
-                                containerSize: geometry.size,
-                            )
-                        }
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .scaleEffect(viewModel.zoomScale)
@@ -133,21 +124,11 @@ struct BrowserZoomOverlayView: View {
 
                 Spacer()
 
-                HStack(spacing: 48) {
-                    zoomControlRow
-                    if viewModel.settings.enableRatingPins {
-                        ZoomRatingBadgeRow(
-                            selectedRating: viewModel.rating(for: viewModel.selectedFile),
-                            applyRating: { rating in
-                                _ = viewModel.updateSelectedFilesRatingAndAdvance(rating)
-                            },
-                        )
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 18)
-                .padding(.bottom, 18)
+                zoomControlRow
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
             }
 
             Button("Close") { close() }
@@ -190,7 +171,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-aA")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -382,15 +363,7 @@ struct BrowserZoomOverlayView: View {
         case .toggleFocusPoints:
             toggleFocusPoint()
             return .handled
-
-        case let .rating(rating):
-            return applyRating(rating)
         }
-    }
-
-    private func applyRating(_ rating: Int) -> KeyPress.Result {
-        guard viewModel.settings.enableRatingPins else { return .ignored }
-        return viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
     }
 
     private func dismiss() {

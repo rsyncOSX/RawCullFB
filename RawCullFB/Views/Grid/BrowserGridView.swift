@@ -24,9 +24,6 @@ struct BrowserGridView: View {
                     ForEach(viewModel.displayedFiles) { file in
                         BrowserThumbnailCell(
                             file: file,
-                            rating: viewModel.settings.enableRatingPins && !viewModel.isShowingSemanticResults
-                                ? viewModel.rating(for: file)
-                                : nil,
                             isFocused: viewModel.selectedFileID == file.id,
                             isSelected: viewModel.selectedFileIDs.contains(file.id),
                             thumbnailSize: viewModel.settings.thumbnailSizeGrid,
@@ -103,12 +100,7 @@ struct BrowserGridView: View {
             viewModel.openZoom()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "nNzZxXpP012345tT")) { press in
-            if viewModel.settings.enableRatingPins,
-               let rating = BrowserRatingShortcut.rating(for: press.characters) {
-                return viewModel.updateSelectedFilesRatingAndAdvance(rating) ? .handled : .ignored
-            }
-
+        .onKeyPress(characters: CharacterSet(charactersIn: "nNpP")) { press in
             switch press.characters {
             case "n", "N":
                 viewModel.navigateSelection(by: 1)

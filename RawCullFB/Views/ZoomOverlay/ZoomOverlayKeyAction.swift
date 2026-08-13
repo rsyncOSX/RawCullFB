@@ -7,7 +7,6 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     case zoomIn
     case zoomOut
     case toggleFocusPoints
-    case rating(Int)
 
     nonisolated static func resolve(
         characters: String?,
@@ -45,7 +44,7 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
             .toggleFocusPoints
 
         default:
-            BrowserRatingShortcut.rating(for: characters).map(ZoomOverlayKeyAction.rating)
+            nil
         }
     }
 }

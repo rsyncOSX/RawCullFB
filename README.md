@@ -1,6 +1,6 @@
 # RawCullFB
 
-RawCullFB is a macOS SwiftUI photo browser with local CLIP or SigLIP 2 indexing and semantic search. It preserves the normal folder browser, ratings, copying, and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
+RawCullFB is a macOS SwiftUI photo browser with local CLIP or SigLIP 2 indexing and semantic search. It preserves the normal folder browser and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
 
 ## Requirements
 

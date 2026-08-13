@@ -3,7 +3,6 @@ import SwiftUI
 
 struct BrowserThumbnailCell: View {
     let file: BrowserFileItem
-    let rating: Int?
     let isFocused: Bool
     let isSelected: Bool
     let thumbnailSize: Int
@@ -60,12 +59,6 @@ struct BrowserThumbnailCell: View {
                         .font(.title3)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Color.accentColor)
-                        .padding(6)
-                }
-            }
-            .overlay(alignment: .topLeading) {
-                if let rating {
-                    BrowserRatingBadge(rating: rating, size: 30)
                         .padding(6)
                 }
             }

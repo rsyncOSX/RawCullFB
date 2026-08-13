@@ -67,10 +67,6 @@ struct FolderOutlineRow: View {
 
     private var imageCountText: String? {
         guard folder.supportedFileCount > 0 else { return nil }
-        let ratedFileCount = viewModel.ratedFileCount(in: folder)
-        if ratedFileCount > 0 {
-            return "\(folder.supportedFileCount) (\(ratedFileCount))"
-        }
         return "\(folder.supportedFileCount)"
     }
 

@@ -12,7 +12,6 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
     var thumbnailSizeGrid = 200
     var thumbnailSizePreview = 1616
     var thumbnailSizeFullSize = 8700
-    var enableRatingPins = true
     var clipModelPath: String?
     var semanticSearchLimit = 50
     var lastIndexedDirectoryPath: String?
@@ -24,7 +23,6 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         case thumbnailSizeGrid
         case thumbnailSizePreview
         case thumbnailSizeFullSize
-        case enableRatingPins
         case clipModelPath
         case semanticSearchLimit
         case lastIndexedDirectoryPath
@@ -51,7 +49,6 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         thumbnailSizeGrid = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeGrid) ?? thumbnailSizeGrid
         thumbnailSizePreview = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizePreview) ?? thumbnailSizePreview
         thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
-        enableRatingPins = try container.decodeIfPresent(Bool.self, forKey: .enableRatingPins) ?? enableRatingPins
         clipModelPath = try container.decodeIfPresent(String.self, forKey: .clipModelPath)
         semanticSearchLimit = try min(
             max(container.decodeIfPresent(Int.self, forKey: .semanticSearchLimit) ?? semanticSearchLimit, 10),
