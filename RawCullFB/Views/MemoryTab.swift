@@ -201,5 +201,4 @@ struct MemoryTab: View {
         case .critical: .red
         }
     }
-
 }

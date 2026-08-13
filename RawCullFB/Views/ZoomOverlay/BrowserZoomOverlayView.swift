@@ -125,10 +125,10 @@ struct BrowserZoomOverlayView: View {
                 Spacer()
 
                 zoomControlRow
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 18)
-                .padding(.bottom, 18)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
             }
 
             Button("Close") { close() }
@@ -363,7 +363,6 @@ struct BrowserZoomOverlayView: View {
         case .toggleFocusPoints:
             toggleFocusPoint()
             return .handled
-
         }
     }
 
