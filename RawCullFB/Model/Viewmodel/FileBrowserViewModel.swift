@@ -15,14 +15,9 @@ final class FileBrowserViewModel {
     var selectedFileID: BrowserFileItem.ID?
     var selectedFileIDs: Set<BrowserFileItem.ID> = []
     var isShowingFolderPicker = false
-    var isShowingCopyDestinationPicker = false
     var isShowingClearCatalogConfirmation = false
     var isScanning = false
     var isCreatingThumbnails = false
-    var copyProgress = CopyProgress()
-    var copyFailure: CopyFailure?
-    var deleteProgress = CopyProgress()
-    var deleteFailure: CopyFailure?
     var zoomOverlayVisible = false
     var zoomImage: CGImage?
     var zoomExifInfo: RawImageMetadata?
@@ -51,7 +46,6 @@ final class FileBrowserViewModel {
     var semanticTestOutcome: SemanticSearchTestOutcome?
     var hasCompatibleCLIPIndex = false
     var clipFeatureError: String?
-    private var fileRatings: [CatalogFileRatingKey: Int] = [:]
 
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
 
@@ -124,22 +118,6 @@ final class FileBrowserViewModel {
 
     var selectedFiles: [BrowserFileItem] {
         displayedFiles.filter { selectedFileIDs.contains($0.id) }
-    }
-
-    var rejectedFileCount: Int {
-        ratedFiles(matching: .rejected).count
-    }
-
-    var positiveRatedFileCount: Int {
-        ratedFiles(matching: .positive).count
-    }
-
-    var canDeleteRejectedFiles: Bool {
-        rejectedFileCount > 0 && !copyProgress.isActive && !deleteProgress.isActive
-    }
-
-    var canCopyRatedFiles: Bool {
-        positiveRatedFileCount > 0 && !copyProgress.isActive && !deleteProgress.isActive
     }
 
     var isSidebarSelectionEnabled: Bool {
@@ -476,15 +454,6 @@ final class FileBrowserViewModel {
         selectionAnchorFileID = semanticFiles.first?.id
     }
 
-    func setRatingPinsEnabled(_ isEnabled: Bool) {
-        guard settings.enableRatingPins != isEnabled else { return }
-        settings.enableRatingPins = isEnabled
-        let updatedSettings = settings
-        Task {
-            await BrowserSettingsStore.save(updatedSettings)
-        }
-    }
-
     func loadRememberedCatalogs() async {
         let catalogs = await RememberedCatalogStore.load()
         var loadedCatalogs: [URL: RememberedCatalog] = [:]
@@ -500,7 +469,6 @@ final class FileBrowserViewModel {
         rememberedCatalogs = loadedCatalogs
         rootFolders = uniqueFolders(loadedFolders)
         await saveRememberedCatalogs()
-        loadSavedRatings()
         await loadChildren(for: rootFolders)
     }
 
@@ -717,96 +685,6 @@ final class FileBrowserViewModel {
         }
     }
 
-    func rating(for file: BrowserFileItem?) -> Int? {
-        guard let file,
-              let key = ratingKey(for: file)
-        else { return nil }
-        return fileRatings[key]
-    }
-
-    func ratedFileCount(in folder: BrowserFolderItem) -> Int {
-        guard let catalogURL = rootCatalogURL(containing: folder.url) else { return 0 }
-        let ratedFileNames = Set(
-            fileRatings
-                .filter { key, _ in key.catalogURL == catalogURL }
-                .map(\.key.fileName),
-        )
-        guard !ratedFileNames.isEmpty,
-              let children = try? FileManager.default.contentsOfDirectory(
-                  at: folder.url,
-                  includingPropertiesForKeys: [.isRegularFileKey],
-                  options: [.skipsHiddenFiles, .skipsPackageDescendants],
-              )
-        else { return 0 }
-
-        return children.reduce(into: 0) { count, url in
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
-            if values?.isRegularFile == true, ratedFileNames.contains(url.lastPathComponent) {
-                count += 1
-            }
-        }
-    }
-
-    func updateSelectedFilesRatingAndAdvance(_ rating: Int) -> Bool {
-        guard settings.enableRatingPins else { return false }
-        let filesToRate = selectedFiles.isEmpty ? selectedFile.map { [$0] } ?? [] : selectedFiles
-        guard !filesToRate.isEmpty else { return false }
-
-        for file in filesToRate {
-            setRating(rating, for: file)
-        }
-
-        Task {
-            await saveRatings()
-        }
-        navigateSelection(by: 1)
-        return true
-    }
-
-    private func setRating(_ rating: Int, for file: BrowserFileItem) {
-        guard let key = ratingKey(for: file) else { return }
-        fileRatings[key] = rating
-    }
-
-    func copyRatedFiles(to destinationURL: URL, filter: RatedCopyFilter) async {
-        await copyFiles(ratedFiles(matching: filter), to: destinationURL)
-    }
-
-    func deleteRejectedFiles() async {
-        guard let selectedFolder else { return }
-        let filesToDelete = ratedFiles(matching: .rejected)
-        guard !filesToDelete.isEmpty else { return }
-        guard startSecurityScopedAccess(for: securityScopedURL(for: selectedFolder.url)) else { return }
-
-        deleteProgress = CopyProgress(completedCount: 0, totalCount: filesToDelete.count)
-        deleteFailure = nil
-
-        do {
-            for (index, file) in filesToDelete.enumerated() {
-                try Task.checkCancellation()
-                try await Task.detached(priority: .utility) {
-                    try FileManager.default.trashItem(at: file.url, resultingItemURL: nil)
-                }.value
-                deleteProgress = CopyProgress(completedCount: index + 1, totalCount: filesToDelete.count)
-            }
-
-            let deletedIDs = Set(filesToDelete.map(\.id))
-            let deletedRatingKeys = Set(filesToDelete.compactMap { ratingKey(for: $0) })
-            files.removeAll { deletedIDs.contains($0.id) }
-            selectedFileIDs.subtract(deletedIDs)
-            if selectedFileID.map(deletedIDs.contains) == true {
-                selectedFileID = files.first?.id
-            }
-            if selectionAnchorFileID.map(deletedIDs.contains) == true {
-                selectionAnchorFileID = selectedFileID
-            }
-            fileRatings = fileRatings.filter { key, _ in !deletedRatingKeys.contains(key) }
-            await saveRatings()
-        } catch {
-            deleteFailure = CopyFailure(message: error.localizedDescription)
-        }
-    }
-
     func clearRememberedCatalogs() async {
         scanTask?.cancel()
         thumbnailTask?.cancel()
@@ -823,12 +701,10 @@ final class FileBrowserViewModel {
         selectedFileIDs = []
         selectionAnchorFileID = nil
         rememberedCatalogs = [:]
-        fileRatings = [:]
         isScanning = false
         isCreatingThumbnails = false
         resetCLIPIndexSelection()
         await RememberedCatalogStore.clear()
-        await WriteSavedFilesJSON.clear()
     }
 
     func removeRootCatalog(_ folder: BrowserFolderItem) async {
@@ -860,13 +736,11 @@ final class FileBrowserViewModel {
             !$0.standardizedFileURL.isEqualOrDescendant(of: catalogURL)
         }
         rememberedCatalogs.removeValue(forKey: catalogURL)
-        fileRatings = fileRatings.filter { key, _ in key.catalogURL != catalogURL }
         if activeSecurityScopedURL == catalogURL {
             stopActiveSecurityScopedAccess()
         }
 
         await saveRememberedCatalogs()
-        await saveRatings()
     }
 
     func stopActiveSecurityScopedAccess() {
@@ -899,114 +773,6 @@ final class FileBrowserViewModel {
         await RememberedCatalogStore.save(catalogs)
     }
 
-    private func loadSavedRatings() {
-        guard !rootFolders.isEmpty,
-              let savedFiles = ReadSavedFilesJSON().readjsonfilesavedfiles()
-        else { return }
-
-        let rootCatalogURLs = Set(rootFolders.map { $0.url.standardizedFileURL })
-        var loadedRatings: [CatalogFileRatingKey: Int] = [:]
-
-        for savedCatalog in savedFiles {
-            guard let catalogURL = savedCatalog.catalog?.standardizedFileURL,
-                  rootCatalogURLs.contains(catalogURL),
-                  let records = savedCatalog.filerecords
-            else { continue }
-
-            for record in records {
-                guard let fileName = record.fileName,
-                      let rating = record.rating
-                else { continue }
-                loadedRatings[CatalogFileRatingKey(catalogURL: catalogURL, fileName: fileName)] = rating
-            }
-        }
-
-        fileRatings = loadedRatings
-    }
-
-    private func saveRatings() async {
-        let savedFiles = rootFolders.compactMap { rootFolder -> SavedFiles? in
-            let catalogURL = rootFolder.url.standardizedFileURL
-            let records = fileRatings
-                .filter { key, _ in key.catalogURL == catalogURL }
-                .sorted { lhs, rhs in lhs.key.fileName.localizedStandardCompare(rhs.key.fileName) == .orderedAscending }
-                .map { key, rating in
-                    FileRecord(
-                        fileName: key.fileName,
-                        dateTagged: nil,
-                        rating: rating,
-                    )
-                }
-
-            guard !records.isEmpty else { return nil }
-            return SavedFiles(
-                catalog: catalogURL,
-                dateStart: nil,
-                filerecords: records,
-            )
-        }
-
-        if savedFiles.isEmpty {
-            await WriteSavedFilesJSON.clear()
-        } else {
-            await WriteSavedFilesJSON.write(savedFiles)
-        }
-    }
-
-    private func copyFiles(_ filesToCopy: [BrowserFileItem], to destinationURL: URL) async {
-        guard !filesToCopy.isEmpty else { return }
-
-        let destination = destinationURL.standardizedFileURL
-        let didAccessDestination = destination.startAccessingSecurityScopedResource()
-        defer {
-            if didAccessDestination {
-                destination.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        copyProgress = CopyProgress(completedCount: 0, totalCount: filesToCopy.count)
-        copyFailure = nil
-
-        do {
-            for (index, file) in filesToCopy.enumerated() {
-                try Task.checkCancellation()
-                let targetURL = uniqueDestinationURL(for: file.url.lastPathComponent, in: destination)
-                try await Task.detached(priority: .utility) {
-                    try FileManager.default.copyItem(at: file.url, to: targetURL)
-                }.value
-                copyProgress = CopyProgress(completedCount: index + 1, totalCount: filesToCopy.count)
-            }
-        } catch {
-            copyFailure = CopyFailure(message: error.localizedDescription)
-        }
-    }
-
-    private func ratedFiles(matching filter: RatedCopyFilter) -> [BrowserFileItem] {
-        files.filter { file in
-            guard let rating = rating(for: file) else { return false }
-            return filter.includes(rating)
-        }
-    }
-
-    private func ratingKey(for file: BrowserFileItem) -> CatalogFileRatingKey? {
-        guard let catalogURL = rootCatalogURL(containing: file.url) else { return nil }
-        return CatalogFileRatingKey(
-            catalogURL: catalogURL,
-            fileName: file.url.lastPathComponent,
-        )
-    }
-
-    private func rootCatalogURL(containing fileURL: URL) -> URL? {
-        let standardizedFileURL = fileURL.standardizedFileURL
-        return rootFolders
-            .map(\.url)
-            .map(\.standardizedFileURL)
-            .filter { standardizedFileURL.isEqualOrDescendant(of: $0) }
-            .max { first, second in
-                first.pathComponents.count < second.pathComponents.count
-            }
-    }
-
     private func uniqueFolders(_ folders: [BrowserFolderItem]) -> [BrowserFolderItem] {
         var seen: Set<URL> = []
         return folders
@@ -1015,33 +781,6 @@ final class FileBrowserViewModel {
                 seen.insert(folder.url)
                 return true
             }
-    }
-
-    private func uniqueDestinationURL(for fileName: String, in destination: URL) -> URL {
-        let proposedURL = destination.appendingPathComponent(fileName)
-        guard FileManager.default.fileExists(atPath: proposedURL.path) else {
-            return proposedURL
-        }
-
-        let sourceURL = URL(fileURLWithPath: fileName)
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let pathExtension = sourceURL.pathExtension
-
-        for copyIndex in 1 ... 10000 {
-            let suffix = copyIndex == 1 ? " copy" : " copy \(copyIndex)"
-            let duplicateName = pathExtension.isEmpty
-                ? "\(baseName)\(suffix)"
-                : "\(baseName)\(suffix).\(pathExtension)"
-            let duplicateURL = destination.appendingPathComponent(duplicateName)
-            if !FileManager.default.fileExists(atPath: duplicateURL.path) {
-                return duplicateURL
-            }
-        }
-
-        let fallbackName = pathExtension.isEmpty
-            ? "\(baseName) copy \(UUID().uuidString)"
-            : "\(baseName) copy \(UUID().uuidString).\(pathExtension)"
-        return destination.appendingPathComponent(fallbackName)
     }
 
     private func startSecurityScopedAccess(for _: URL) -> Bool {

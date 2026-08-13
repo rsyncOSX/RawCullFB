@@ -16,7 +16,6 @@
 		E90E89F73028D8D3009F6BCB /* VisionFeaturePrintBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E90E89F63028D8D3009F6BCB /* VisionFeaturePrintBackend */; };
 		E90ED2132FE07ABB0034DF74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E90ED2082FE07ABB0034DF74 /* Assets.xcassets */; };
 		E90ED21F2FE07AF50034DF74 /* RawCullFBicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E90ED21E2FE07AF50034DF74 /* RawCullFBicon.icon */; };
-		E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */; };
 		E9BCDDC92FF6962A004A4A95 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9BCDDC82FF6962A004A4A95 /* RawParserKit */; };
 		FB0000010000000000000001 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000010000000000000011 /* RawCullCore */; };
 /* End PBXBuildFile section */
@@ -68,7 +67,6 @@
 				E90E89F73028D8D3009F6BCB /* VisionFeaturePrintBackend in Frameworks */,
 				E90E89ED3028D8D3009F6BCB /* CoreAIEfficientSAMBackend in Frameworks */,
 				E90E89EF3028D8D3009F6BCB /* CoreAISAM3Backend in Frameworks */,
-				E979C06B2FE4591900DAE1EF /* DecodeEncodeGeneric in Frameworks */,
 				FB0000010000000000000001 /* RawCullCore in Frameworks */,
 				E90E89F53028D8D3009F6BCB /* PhotoAIWorkflows in Frameworks */,
 				E9BCDDC92FF6962A004A4A95 /* RawParserKit in Frameworks */,
@@ -142,7 +140,6 @@
 			name = RawCullFB;
 			packageProductDependencies = (
 				FB0000010000000000000011 /* RawCullCore */,
-				E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */,
 				E9BCDDC82FF6962A004A4A95 /* RawParserKit */,
 				E90E89EA3028D8D3009F6BCB /* CoreAICLIPBackend */,
 				E90E89EC3028D8D3009F6BCB /* CoreAIEfficientSAMBackend */,
@@ -186,7 +183,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
-				E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
 				E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 				E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
 			);
@@ -544,14 +540,6 @@
 				revision = 6e3216027b267c27ccaf99d334807b18ea1aaec9;
 			};
 		};
-		E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/DecodeEncodeGeneric";
-			requirement = {
-				kind = exactVersion;
-				version = 1.0.0;
-			};
-		};
 		E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
@@ -605,11 +593,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
 			productName = VisionFeaturePrintBackend;
-		};
-		E979C06A2FE4591900DAE1EF /* DecodeEncodeGeneric */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E979C0692FE4591900DAE1EF /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
-			productName = DecodeEncodeGeneric;
 		};
 		E9BCDDC82FF6962A004A4A95 /* RawParserKit */ = {
 			isa = XCSwiftPackageProductDependency;

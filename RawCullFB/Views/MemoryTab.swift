@@ -15,14 +15,6 @@ struct MemoryTab: View {
         VStack(spacing: 20) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Toggle(isOn: ratingPinsBinding) {
-                        Label("Enable rating pins", systemImage: "pin.circle")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .toggleStyle(.switch)
-
-                    Divider()
-
                     // Total Memory
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -210,11 +202,4 @@ struct MemoryTab: View {
         }
     }
 
-    private var ratingPinsBinding: Binding<Bool> {
-        Binding {
-            viewModel.settings.enableRatingPins
-        } set: { isEnabled in
-            viewModel.setRatingPinsEnabled(isEnabled)
-        }
-    }
 }

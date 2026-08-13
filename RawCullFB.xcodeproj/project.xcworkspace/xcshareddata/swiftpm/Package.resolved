@@ -1,5 +1,5 @@
 {
-  "originHash" : "9501c12d257c998eea452f6a9193e0de76bf67a2917a1b5f99115d355467a2ad",
+  "originHash" : "6a0a6da5d46a1ec0488c5127e0dcbe9273619c1791fe6e836fbd6a9295420d9f",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -7,15 +7,6 @@
       "location" : "https://github.com/apple/coreai-models.git",
       "state" : {
         "revision" : "bffc38fe48f50e4e962ac9772b64a5b55a605286"
-      }
-    },
-    {
-      "identity" : "decodeencodegeneric",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/DecodeEncodeGeneric",
-      "state" : {
-        "revision" : "b5ecbbbe1b244191efec1532a979f6ae342d6617",
-        "version" : "1.0.0"
       }
     },
     {
