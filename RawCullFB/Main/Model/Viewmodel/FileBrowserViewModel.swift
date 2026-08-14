@@ -50,6 +50,7 @@ final class FileBrowserViewModel {
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
 
     @ObservationIgnored private var activeSecurityScopedURL: URL?
+    @ObservationIgnored private var activeCLIPModelSecurityScopedURL: URL?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var zoomTask: Task<Void, Never>?
@@ -135,14 +136,21 @@ final class FileBrowserViewModel {
     func loadSettings() async {
         settings = await BrowserSettingsStore.load()
         await MemoryImageCache.shared.apply(settings: settings)
-        if let path = settings.clipModelPath {
-            validateCLIPModel(at: URL(filePath: path))
+        if let url = resolvedCLIPModelURL() {
+            guard startCLIPModelSecurityScopedAccess(for: url) else { return }
+            validateCLIPModel(at: url)
         }
     }
 
     func setCLIPModelURL(_ url: URL) {
         let standardizedURL = url.standardizedFileURL
+        guard startCLIPModelSecurityScopedAccess(for: standardizedURL) else { return }
         settings.clipModelPath = standardizedURL.path
+        settings.clipModelBookmarkData = try? standardizedURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil,
+        )
         persistSettings()
         validateCLIPModel(at: standardizedURL)
     }
@@ -156,7 +164,10 @@ final class FileBrowserViewModel {
         indexingID = UUID()
         indexValidationID = UUID()
         semanticTestID = UUID()
+        activeCLIPModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeCLIPModelSecurityScopedURL = nil
         settings.clipModelPath = nil
+        settings.clipModelBookmarkData = nil
         settings.lastIndexedDirectoryPath = nil
         clipModelStatus = .notConfigured
         clipProvider = nil
@@ -783,8 +794,45 @@ final class FileBrowserViewModel {
             }
     }
 
-    private func startSecurityScopedAccess(for _: URL) -> Bool {
-        true
+    private func startSecurityScopedAccess(for url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        if activeSecurityScopedURL == standardizedURL {
+            return true
+        }
+        guard standardizedURL.startAccessingSecurityScopedResource() else {
+            return false
+        }
+        activeSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeSecurityScopedURL = standardizedURL
+        return true
+    }
+
+    private func resolvedCLIPModelURL() -> URL? {
+        if let bookmarkData = settings.clipModelBookmarkData {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale,
+            ) {
+                return url.standardizedFileURL
+            }
+        }
+        return settings.clipModelPath.map { URL(filePath: $0) }
+    }
+
+    private func startCLIPModelSecurityScopedAccess(for url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        if activeCLIPModelSecurityScopedURL == standardizedURL {
+            return true
+        }
+        guard standardizedURL.startAccessingSecurityScopedResource() else {
+            return false
+        }
+        activeCLIPModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeCLIPModelSecurityScopedURL = standardizedURL
+        return true
     }
 
     private func validateCLIPModel(at url: URL) {

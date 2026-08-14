@@ -13,6 +13,7 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
     var thumbnailSizePreview = 1616
     var thumbnailSizeFullSize = 8700
     var clipModelPath: String?
+    var clipModelBookmarkData: Data?
     var semanticSearchLimit = 50
     var lastIndexedDirectoryPath: String?
 
@@ -24,6 +25,7 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         case thumbnailSizePreview
         case thumbnailSizeFullSize
         case clipModelPath
+        case clipModelBookmarkData
         case semanticSearchLimit
         case lastIndexedDirectoryPath
     }
@@ -50,6 +52,7 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         thumbnailSizePreview = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizePreview) ?? thumbnailSizePreview
         thumbnailSizeFullSize = try container.decodeIfPresent(Int.self, forKey: .thumbnailSizeFullSize) ?? thumbnailSizeFullSize
         clipModelPath = try container.decodeIfPresent(String.self, forKey: .clipModelPath)
+        clipModelBookmarkData = try container.decodeIfPresent(Data.self, forKey: .clipModelBookmarkData)
         semanticSearchLimit = try min(
             max(container.decodeIfPresent(Int.self, forKey: .semanticSearchLimit) ?? semanticSearchLimit, 10),
             500,
