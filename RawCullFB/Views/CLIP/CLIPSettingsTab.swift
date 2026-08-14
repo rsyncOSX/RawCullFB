@@ -1,32 +1,45 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct CLIPSettingsTab: View {
     @Environment(FileBrowserViewModel.self) private var viewModel
-    @State private var isChoosingModel = false
+    @State private var showModelDownloads = false
 
     var body: some View {
+        @Bindable var viewModel = viewModel
+
         Form {
-            Section("CLIP Model") {
-                LabeledContent("Model path") {
-                    Text(viewModel.clipModelPath ?? "Not configured")
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
+            Section("AI Models") {
+                ForEach(CLIPManagedModel.allCases) { model in
+                    CLIPModelStatusRow(
+                        model: model,
+                        state: viewModel.clipModelDownloadStates[model.downloadID] ?? .checking,
+                    )
+                }
+
+                Picker("Selected CLIP model", selection: $viewModel.selectedCLIPModel) {
+                    ForEach(CLIPManagedModel.allCases) { model in
+                        Text(model.displayName).tag(model)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .help("Choose the CLIP model RawCullFB uses for indexing and semantic search.")
+
+                LabeledContent("Active model") {
+                    Text(activeModelMessage)
+                        .foregroundStyle(viewModel.clipModelStatus.isAvailable ? .green : .secondary)
                 }
 
                 HStack {
-                    Button("Choose Model…", systemImage: "folder") {
-                        isChoosingModel = true
+                    Button("Download AI Models", systemImage: "arrow.down.circle") {
+                        showModelDownloads = true
                     }
-                    Button("Clear", role: .destructive) {
-                        viewModel.clearCLIPModel()
+
+                    Button("Check Again", systemImage: "arrow.clockwise") {
+                        Task { await viewModel.refreshCLIPModels() }
                     }
-                    .disabled(viewModel.clipModelPath == nil)
+
                     Spacer()
                 }
-
-                CLIPModelStatusView(status: viewModel.clipModelStatus)
             }
 
             Section("Semantic Search") {
@@ -49,76 +62,57 @@ struct CLIPSettingsTab: View {
                         .disabled(viewModel.semanticSearchLimit >= 500)
                     }
                 }
+
                 Text("Search returns up to this many thumbnails. Change the value in steps of ten.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .fileImporter(
-            isPresented: $isChoosingModel,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false,
-        ) { result in
-            guard case let .success(urls) = result, let url = urls.first else { return }
-            viewModel.setCLIPModelURL(url)
+        .sheet(isPresented: $showModelDownloads) {
+            CLIPModelDownloadsView(viewModel: viewModel)
+        }
+        .task {
+            await viewModel.refreshCLIPModels()
+        }
+    }
+
+    private var activeModelMessage: String {
+        let name = viewModel.selectedCLIPModel.displayName
+        return switch viewModel.clipModelStatus {
+        case let .available(_, _, modelName):
+            "\(name) (\(modelName))"
+        case .checking:
+            "Checking \(name)…"
+        case .missing:
+            "\(name) is missing"
+        case .invalid:
+            "\(name) is invalid"
+        case .notConfigured:
+            "Download \(name) to use it"
         }
     }
 }
 
-private struct CLIPModelStatusView: View {
-    let status: CLIPModelStatus
+private struct CLIPModelStatusRow: View {
+    let model: CLIPManagedModel
+    let state: CLIPModelDownloadState
 
     var body: some View {
-        LabeledContent("Verification") {
-            HStack(spacing: 7) {
-                if case .checking = status {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: iconName)
-                        .foregroundStyle(statusColor)
-                }
-                Text(statusText)
-                    .foregroundStyle(statusColor)
-                    .textSelection(.enabled)
-            }
+        HStack(spacing: 8) {
+            Image(systemName: state.iconName)
+                .foregroundStyle(state.color)
+                .accessibilityHidden(true)
+
+            Text("\(model.displayName) CLIP")
+
+            Spacer()
+
+            Text(state.title)
+                .foregroundStyle(state.color)
         }
-    }
-
-    private var iconName: String {
-        switch status {
-        case .available: "checkmark.seal.fill"
-        case .notConfigured, .missing: "questionmark.circle"
-        case .invalid: "xmark.octagon.fill"
-        case .checking: "hourglass"
-        }
-    }
-
-    private var statusColor: Color {
-        switch status {
-        case .available: .green
-        case .invalid: .red
-        case .notConfigured, .missing, .checking: .secondary
-        }
-    }
-
-    private var statusText: String {
-        switch status {
-        case .notConfigured:
-            "Choose a compatible CLIP model bundle."
-
-        case let .checking(url):
-            "Verifying \(url.path)"
-
-        case let .available(_, fingerprint, modelName):
-            "Valid \(modelName) model (\(fingerprint))"
-
-        case let .missing(url):
-            "No model bundle found at \(url.path)"
-
-        case let .invalid(url, reason):
-            "Invalid model at \(url.path): \(reason)"
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(model.displayName) CLIP model")
+        .accessibilityValue(String(localized: state.title))
     }
 }

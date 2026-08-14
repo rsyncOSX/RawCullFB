@@ -5,6 +5,41 @@ import Testing
 @Suite("CLIP feature")
 struct CLIPFeatureTests {
     @Test
+    func `Managed CLIP catalog matches RawCull asset packs`() {
+        let catalog = CLIPModelDownloadCatalog.production
+
+        #expect(catalog.models.map(\.id) == [.clipDataComp, .clipOpenAI])
+        #expect(
+            catalog.descriptor(for: .clipDataComp)?.assetPackID
+                == "no.blogspot.RawCull.models.clip-datacomp",
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.assetPackID
+                == "no.blogspot.RawCull.models.clip-openai",
+        )
+        #expect(
+            catalog.descriptor(for: .clipDataComp)?.assetPackModelPath
+                == "Models/CLIP-DataComp",
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.assetPackModelPath
+                == "Models/CLIP-OpenAI",
+        )
+    }
+
+    @Test
+    func `OpenAI is the default and managed CLIP selection is persisted`() throws {
+        #expect(BrowserSettings().selectedCLIPModel == .openAI)
+
+        let decoded = try JSONDecoder().decode(
+            BrowserSettings.self,
+            from: Data(#"{"selectedCLIPModel":"data-comp"}"#.utf8),
+        )
+
+        #expect(decoded.selectedCLIPModel == .dataComp)
+    }
+
+    @Test
     func `Semantic result limit defaults to 50`() {
         #expect(BrowserSettings().semanticSearchLimit == 50)
     }
