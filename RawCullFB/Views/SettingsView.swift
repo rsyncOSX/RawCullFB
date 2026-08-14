@@ -17,7 +17,7 @@ struct SettingsView: View {
 
             CLIPSettingsTab()
                 .tabItem {
-                    Label("CLIP", systemImage: "sparkle.magnifyingglass")
+                    Label("AI Models", systemImage: "sparkle.magnifyingglass")
                 }
         }
         .padding(20)

@@ -46,11 +46,14 @@ final class FileBrowserViewModel {
     var semanticTestOutcome: SemanticSearchTestOutcome?
     var hasCompatibleCLIPIndex = false
     var clipFeatureError: String?
+    private(set) var clipModelDownloadStates: [CLIPModelDownloadID: CLIPModelDownloadState] =
+        Dictionary(uniqueKeysWithValues: CLIPModelDownloadID.allCases.map { ($0, .checking) })
 
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
 
     @ObservationIgnored private var activeSecurityScopedURL: URL?
     @ObservationIgnored private var activeCLIPModelSecurityScopedURL: URL?
+    @ObservationIgnored private var activeCLIPModelURL: URL?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var zoomTask: Task<Void, Never>?
@@ -58,6 +61,10 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var selectionAnchorFileID: BrowserFileItem.ID?
     @ObservationIgnored private var rememberedCatalogs: [URL: RememberedCatalog] = [:]
     @ObservationIgnored private let clipModelManager = CLIPModelManager()
+    @ObservationIgnored private let clipModelDownloadCoordinator = CLIPModelDownloadCoordinator()
+    @ObservationIgnored private var managedCLIPModelLocations: [CLIPModelDownloadID: URL] = [:]
+    @ObservationIgnored private var clipModelDownloadTasks: [CLIPModelDownloadID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var clipModelRefreshGeneration = 0
     @ObservationIgnored private var clipProvider: CoreAICLIPProvider?
     @ObservationIgnored private var clipEngine: CLIPSearchEngine?
     @ObservationIgnored private var clipEngineDirectoryURL: URL?
@@ -81,7 +88,17 @@ final class FileBrowserViewModel {
     }
 
     var clipModelPath: String? {
-        settings.clipModelPath
+        managedCLIPModelLocations[settings.selectedCLIPModel.downloadID]?.path
+    }
+
+    var selectedCLIPModel: CLIPManagedModel {
+        get { settings.selectedCLIPModel }
+        set {
+            guard settings.selectedCLIPModel != newValue else { return }
+            settings.selectedCLIPModel = newValue
+            persistSettings()
+            activateSelectedCLIPModel()
+        }
     }
 
     var semanticSearchLimit: Int {
@@ -136,9 +153,49 @@ final class FileBrowserViewModel {
     func loadSettings() async {
         settings = await BrowserSettingsStore.load()
         await MemoryImageCache.shared.apply(settings: settings)
-        if let url = resolvedCLIPModelURL() {
-            guard startCLIPModelSecurityScopedAccess(for: url) else { return }
-            validateCLIPModel(at: url)
+        await refreshCLIPModels()
+    }
+
+    func refreshCLIPModels() async {
+        clipModelRefreshGeneration &+= 1
+        let generation = clipModelRefreshGeneration
+        let snapshot = await clipModelDownloadCoordinator.snapshot()
+        guard !Task.isCancelled, clipModelRefreshGeneration == generation else { return }
+        clipModelDownloadStates = snapshot.states
+        managedCLIPModelLocations = snapshot.managedModelLocations
+        activateSelectedCLIPModel()
+    }
+
+    func startCLIPModelDownload(_ id: CLIPModelDownloadID) {
+        guard clipModelDownloadTasks[id] == nil,
+              clipModelDownloadStates[id]?.canStartDownload == true
+        else { return }
+
+        clipModelDownloadStates[id] = .downloading(progress: 0)
+        clipModelDownloadTasks[id] = Task { [weak self] in
+            guard let self else { return }
+            await performCLIPModelDownload(id)
+        }
+    }
+
+    func cancelCLIPModelDownload(_ id: CLIPModelDownloadID) {
+        clipModelDownloadTasks[id]?.cancel()
+    }
+
+    func removeManagedCLIPModel(_ id: CLIPModelDownloadID) async {
+        guard clipModelDownloadTasks[id] == nil else { return }
+        clipModelDownloadStates[id] = .removing
+        do {
+            try await clipModelDownloadCoordinator.remove(id)
+            managedCLIPModelLocations[id] = nil
+            if id == settings.selectedCLIPModel.downloadID {
+                deactivateCLIPModelRuntime()
+            }
+            await refreshCLIPModels()
+        } catch is CancellationError {
+            return
+        } catch {
+            clipModelDownloadStates[id] = .failed(message: String(describing: error))
         }
     }
 
@@ -822,6 +879,61 @@ final class FileBrowserViewModel {
         return settings.clipModelPath.map { URL(filePath: $0) }
     }
 
+    private func activateSelectedCLIPModel() {
+        guard let url = managedCLIPModelLocations[settings.selectedCLIPModel.downloadID] else {
+            deactivateCLIPModelRuntime()
+            return
+        }
+        validateCLIPModel(at: url)
+    }
+
+    private func performCLIPModelDownload(_ id: CLIPModelDownloadID) async {
+        defer { clipModelDownloadTasks[id] = nil }
+        do {
+            let location = try await clipModelDownloadCoordinator.download(
+                id,
+                progress: { [weak self] progress in
+                    guard let self, !Task.isCancelled else { return }
+                    clipModelDownloadStates[id] = .downloading(
+                        progress: min(max(progress, 0), 1),
+                    )
+                },
+            )
+            try Task.checkCancellation()
+            clipModelDownloadStates[id] = .validating
+            managedCLIPModelLocations[id] = location
+            if id == settings.selectedCLIPModel.downloadID {
+                validateCLIPModel(at: location)
+            }
+            await refreshCLIPModels()
+        } catch is CancellationError {
+            let snapshot = await clipModelDownloadCoordinator.snapshot()
+            clipModelDownloadStates[id] = snapshot.states[id] ?? .ready
+        } catch {
+            clipModelDownloadStates[id] = .failed(message: String(describing: error))
+        }
+    }
+
+    private func deactivateCLIPModelRuntime() {
+        activeCLIPModelURL = nil
+        modelValidationTask?.cancel()
+        indexingTask?.cancel()
+        indexValidationTask?.cancel()
+        searchTask?.cancel()
+        semanticTestTask?.cancel()
+        clipModelStatus = .notConfigured
+        clipProvider = nil
+        clipEngine = nil
+        clipEngineDirectoryURL = nil
+        hasCompatibleCLIPIndex = false
+        clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
+        isIndexing = false
+        isSearching = false
+        isRunningSemanticTest = false
+        semanticTestProgress = nil
+        clearSemanticSearchResults()
+    }
+
     private func startCLIPModelSecurityScopedAccess(for url: URL) -> Bool {
         let standardizedURL = url.standardizedFileURL
         if activeCLIPModelSecurityScopedURL == standardizedURL {
@@ -836,6 +948,8 @@ final class FileBrowserViewModel {
     }
 
     private func validateCLIPModel(at url: URL) {
+        let url = url.standardizedFileURL
+        activeCLIPModelURL = url
         modelValidationTask?.cancel()
         indexingTask?.cancel()
         indexValidationTask?.cancel()
@@ -861,7 +975,7 @@ final class FileBrowserViewModel {
         modelValidationTask = Task { [weak self] in
             guard let self else { return }
             let load = await self.clipModelManager.load(url: url)
-            guard !Task.isCancelled, self.settings.clipModelPath == url.path else { return }
+            guard !Task.isCancelled, self.activeCLIPModelURL == url else { return }
             self.clipModelStatus = load.status
             self.clipProvider = load.provider
             if self.selectedFolder != nil {
