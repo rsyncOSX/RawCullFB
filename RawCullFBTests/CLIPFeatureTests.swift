@@ -5,6 +5,22 @@ import Testing
 @Suite("CLIP feature")
 struct CLIPFeatureTests {
     @Test
+    func `Background Assets rejects the affected macOS 27 beta build`() {
+        #expect(
+            !CLIPBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                    "Version 27.0 (Build 26A5406e)",
+            ),
+        )
+        #expect(
+            CLIPBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                    "Version 27.0 (Build 26A5500f)",
+            ),
+        )
+    }
+
+    @Test
     func `Managed CLIP catalog matches RawCull asset packs`() {
         let catalog = CLIPModelDownloadCatalog.production
 
