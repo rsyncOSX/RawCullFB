@@ -141,7 +141,6 @@ nonisolated struct CLIPModelDownloadsSnapshot: Equatable, Sendable {
 
 nonisolated enum CLIPModelDownloadError: Error, LocalizedError, Sendable {
     case serviceNotConfigured
-    case backgroundAssetsUnavailable(String)
     case assetPackNotFound(String)
     case downloadedModelNotFound(String)
 
@@ -149,32 +148,11 @@ nonisolated enum CLIPModelDownloadError: Error, LocalizedError, Sendable {
         switch self {
         case .serviceNotConfigured:
             "The AI model download service has not been configured."
-        case let .backgroundAssetsUnavailable(message):
-            message
         case let .assetPackNotFound(assetPackID):
             "The model asset pack \(assetPackID) is not present in the download manifest."
         case let .downloadedModelNotFound(path):
             "The downloaded asset pack does not contain the expected model at \(path)."
         }
-    }
-}
-
-nonisolated enum CLIPBackgroundAssetsRuntime {
-    static let macOS27Beta5Build = "26A5406e"
-    static let unavailableMessage =
-        "AI model downloads are temporarily unavailable on macOS 27 beta 5 "
-        + "(build \(macOS27Beta5Build)) because of a Background Assets "
-        + "validation regression. Update macOS to use model downloads."
-
-    static var isUsable: Bool {
-        isUsable(
-            operatingSystemVersionString: ProcessInfo.processInfo
-                .operatingSystemVersionString,
-        )
-    }
-
-    static func isUsable(operatingSystemVersionString: String) -> Bool {
-        !operatingSystemVersionString.contains(macOS27Beta5Build)
     }
 }
 
@@ -206,21 +184,13 @@ actor ManagedBackgroundAssetsCLIPModelDownloadService: CLIPModelDownloadServicin
     }
 
     private let manifestURL: URL
-    private let backgroundAssetsRuntimeIsUsable: Bool
 
-    init(
-        manifestURL: URL = liveManifestURL,
-        backgroundAssetsRuntimeIsUsable: Bool = CLIPBackgroundAssetsRuntime.isUsable,
-    ) {
+    init(manifestURL: URL = liveManifestURL) {
         self.manifestURL = manifestURL
-        self.backgroundAssetsRuntimeIsUsable = backgroundAssetsRuntimeIsUsable
     }
 
     func state(for descriptor: CLIPModelDownloadDescriptor) async -> CLIPModelDownloadState {
         guard isConfigured else { return .notConfigured }
-        guard backgroundAssetsRuntimeIsUsable else {
-            return .failed(message: CLIPBackgroundAssetsRuntime.unavailableMessage)
-        }
 
         if AssetPackManager.shared.assetPackIsAvailableLocally(withID: descriptor.assetPackID) {
             do {
@@ -250,11 +220,6 @@ actor ManagedBackgroundAssetsCLIPModelDownloadService: CLIPModelDownloadServicin
         progress: @escaping @MainActor @Sendable (Double) -> Void,
     ) async throws -> URL {
         guard isConfigured else { throw CLIPModelDownloadError.serviceNotConfigured }
-        guard backgroundAssetsRuntimeIsUsable else {
-            throw CLIPModelDownloadError.backgroundAssetsUnavailable(
-                CLIPBackgroundAssetsRuntime.unavailableMessage,
-            )
-        }
         try Task.checkCancellation()
 
         let manifest = try await AssetPackManager.shared.manifest
@@ -285,11 +250,6 @@ actor ManagedBackgroundAssetsCLIPModelDownloadService: CLIPModelDownloadServicin
     }
 
     func remove(_ descriptor: CLIPModelDownloadDescriptor) async throws {
-        guard backgroundAssetsRuntimeIsUsable else {
-            throw CLIPModelDownloadError.backgroundAssetsUnavailable(
-                CLIPBackgroundAssetsRuntime.unavailableMessage,
-            )
-        }
         try Task.checkCancellation()
         try await AssetPackManager.shared.remove(assetPackWithID: descriptor.assetPackID)
     }
