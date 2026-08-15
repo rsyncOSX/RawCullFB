@@ -8,7 +8,9 @@ nonisolated enum CLIPManagedModel: String, CaseIterable, Codable, Hashable, Iden
 
     static let defaultSelection = Self.openAI
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {
@@ -29,7 +31,9 @@ nonisolated enum CLIPModelDownloadID: String, CaseIterable, Codable, Identifiabl
     case clipDataComp = "clip-datacomp"
     case clipOpenAI = "clip-openai"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var model: CLIPManagedModel {
         switch self {
@@ -100,7 +104,7 @@ nonisolated struct CLIPModelDownloadCatalog: Equatable, Sendable {
                 "https://github.com/openai/CLIP/blob/main/LICENSE",
             ),
             downloadByteCount: 282_866_068,
-        ),
+        )
     ])
 
     private static func requiredURL(_ string: String) -> URL {
@@ -148,8 +152,10 @@ nonisolated enum CLIPModelDownloadError: Error, LocalizedError, Sendable {
         switch self {
         case .serviceNotConfigured:
             "The AI model download service has not been configured."
+
         case let .assetPackNotFound(assetPackID):
             "The model asset pack \(assetPackID) is not present in the download manifest."
+
         case let .downloadedModelNotFound(path):
             "The downloaded asset pack does not contain the expected model at \(path)."
         }

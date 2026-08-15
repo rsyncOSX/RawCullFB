@@ -40,7 +40,7 @@ final class FileBrowserViewModel {
     var isSearching = false
     var isRunningSemanticTest = false
 
-    let addSemanticTest = true
+    let addSemanticTest = false
 
     var semanticTestProgress: SemanticSearchTestProgress?
     var semanticTestOutcome: SemanticSearchTestOutcome?
