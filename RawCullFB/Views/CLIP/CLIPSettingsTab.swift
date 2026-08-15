@@ -82,12 +82,16 @@ struct CLIPSettingsTab: View {
         return switch viewModel.clipModelStatus {
         case let .available(_, _, modelName):
             "\(name) (\(modelName))"
+
         case .checking:
             "Checking \(name)…"
+
         case .missing:
             "\(name) is missing"
+
         case .invalid:
             "\(name) is invalid"
+
         case .notConfigured:
             "Download \(name) to use it"
         }
