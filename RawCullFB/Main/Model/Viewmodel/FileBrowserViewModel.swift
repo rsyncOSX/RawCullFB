@@ -530,6 +530,16 @@ final class FileBrowserViewModel {
         for catalog in catalogs {
             guard let url = RememberedCatalogStore.resolvedURL(for: catalog) else { continue }
             let standardizedURL = url.standardizedFileURL
+            guard startSecurityScopedAccess(for: standardizedURL) else { continue }
+
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: standardizedURL.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue
+            else {
+                stopActiveSecurityScopedAccess()
+                continue
+            }
+
             loadedCatalogs[standardizedURL] = catalog
             loadedFolders.append(BrowserFolderItem(url: standardizedURL))
         }
