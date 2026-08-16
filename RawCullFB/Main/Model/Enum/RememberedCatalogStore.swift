@@ -3,7 +3,9 @@ import Foundation
 enum RememberedCatalogStore {
     static func load() async -> [RememberedCatalog] {
         let url = catalogsURL
+
         guard FileManager.default.fileExists(atPath: url.path) else {
+            print("Catalog file does not exist")
             return []
         }
 
@@ -11,7 +13,12 @@ enum RememberedCatalogStore {
             let data = try await Task.detached(priority: .utility) {
                 try Data(contentsOf: url)
             }.value
-            return try JSONDecoder.catalogDecoder.decode([RememberedCatalog].self, from: data)
+
+            let catalogs = try JSONDecoder.catalogDecoder.decode(
+                [RememberedCatalog].self,
+                from: data
+            )
+            return catalogs
         } catch {
             return []
         }
@@ -42,28 +49,17 @@ enum RememberedCatalogStore {
     }
 
     static func resolvedURL(for catalog: RememberedCatalog) -> URL? {
-        let url: URL
         if let bookmarkData = catalog.bookmarkData {
             var isStale = false
-            url = (try? URL(
+            return (try? URL(
                 resolvingBookmarkData: bookmarkData,
                 options: [.withSecurityScope],
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale,
             )) ?? URL(filePath: catalog.path)
-        } else {
-            url = URL(filePath: catalog.path)
         }
 
-        guard url.startAccessingSecurityScopedResource() else { return nil }
-        defer { url.stopAccessingSecurityScopedResource() }
-
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-              isDirectory.boolValue
-        else { return nil }
-
-        return url
+        return URL(filePath: catalog.path)
     }
 
     private static func saveCatalogs(_ catalogs: [RememberedCatalog]) async {
