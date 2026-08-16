@@ -536,8 +536,11 @@ final class FileBrowserViewModel {
 
         rememberedCatalogs = loadedCatalogs
         rootFolders = uniqueFolders(loadedFolders)
-        await saveRememberedCatalogs()
         await loadChildren(for: rootFolders)
+
+        if selectedFolder == nil, let firstCatalog = rootFolders.first {
+            selectFolder(firstCatalog)
+        }
     }
 
     func addRootFolder(_ url: URL) {
