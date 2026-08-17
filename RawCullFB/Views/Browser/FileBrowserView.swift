@@ -97,9 +97,16 @@ struct FileBrowserView: View {
                 Button {
                     viewModel.clearSemanticSearchResults()
                 } label: {
-                    Label("Clear Search", systemImage: "xmark.circle")
+                    Label(
+                        viewModel.isShowingSimilarityResults ? "Clear Similarity" : "Clear Search",
+                        systemImage: "xmark.circle",
+                    )
                 }
-                .help("Clear semantic search results")
+                .help(
+                    viewModel.isShowingSimilarityResults
+                        ? "Return to the selected folder"
+                        : "Clear semantic search results",
+                )
             }
 
             if viewModel.addSemanticTest {

@@ -1,4 +1,5 @@
 import Foundation
+import PhotoAIContracts
 @testable import RawCullFB
 import Testing
 
@@ -118,6 +119,70 @@ struct CLIPFeatureTests {
     }
 
     @Test
+    func `Image similarity ranks indexed neighbors and excludes its anchor`() throws {
+        let anchor = try indexedEntry(path: "/photos/anchor.jpg", values: [1, 0])
+        let nearest = try indexedEntry(path: "/photos/nearest.jpg", values: [0.9, 0.1])
+        let furthest = try indexedEntry(path: "/photos/furthest.jpg", values: [0, 1])
+        let index = CLIPPersistedIndex(
+            backend: testBackend,
+            entries: [furthest, anchor, nearest],
+        )
+
+        let results = try CLIPSimilaritySearch.results(
+            in: index,
+            anchorURL: anchor.source.url,
+            limit: 10,
+        )
+
+        #expect(results.map(\.fileName) == ["nearest.jpg", "furthest.jpg"])
+        #expect(results.map(\.rank) == [1, 2])
+        #expect(results.allSatisfy { $0.path != anchor.source.url.path })
+    }
+
+    @Test
+    func `Local CLIP bundle returns semantic search results`() async throws {
+        guard let bundlePath = ProcessInfo.processInfo.environment["CLIP_COREAI_BUNDLE"] else {
+            return
+        }
+        let load = await CLIPModelManager().load(
+            url: URL(filePath: bundlePath, directoryHint: .isDirectory),
+        )
+        guard let provider = load.provider else {
+            Issue.record("RawCullFB rejected the CLIP model bundle")
+            return
+        }
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullFBSemanticSearch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fixture = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("images/background.png")
+        try FileManager.default.copyItem(
+            at: fixture,
+            to: root.appendingPathComponent("fixture.png"),
+        )
+
+        let engine = CLIPSearchEngine(
+            provider: provider,
+            indexStore: CLIPIndexStore(
+                fileURL: CLIPIndexPaths.defaultIndexURL(
+                    directory: root,
+                    modelFingerprint: provider.backendDescriptor.modelFingerprint,
+                ),
+            ),
+        )
+        let summary = try await engine.synchronize(directory: root)
+        let results = try await engine.search(text: "muskox", limit: 10)
+
+        #expect(summary.indexed == 1)
+        #expect(results.count == 1)
+        #expect(results.first?.fileName == "fixture.png")
+    }
+
+    @Test
     func `SigLIP 2 bundle indexes and searches through RawCullFB`() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard let bundlePath = environment["SIGLIP2_COREAI_BUNDLE"],
@@ -170,12 +235,56 @@ struct CLIPFeatureTests {
         )
         let summary = try await engine.synchronize(directory: root)
         let results = try await engine.search(text: "puffins portrait", limit: 10)
+        let similar = try await engine.search(
+            similarTo: root.appendingPathComponent("fixture-0.jpg"),
+            limit: 10,
+        )
 
         #expect(summary.discovered == reference.images.count)
         #expect(summary.indexed == reference.images.count)
         #expect(summary.failures.isEmpty)
         #expect(results.count == reference.images.count)
+        #expect(similar.count == max(0, reference.images.count - 1))
         #expect(await engine.hasCompatibleIndex())
+    }
+
+    private var testBackend: SimilarityBackendDescriptor {
+        SimilarityBackendDescriptor(
+            backend: "clip",
+            modelFingerprint: testModel.artifactIdentifier,
+            representation: "embedding",
+            preprocessingVersion: "1",
+            normalizationVersion: "1",
+            configurationVersion: "1",
+        )
+    }
+
+    private var testModel: ModelIdentity {
+        ModelIdentity(family: "clip", name: "test", assetName: "test")
+    }
+
+    private func indexedEntry(path: String, values: [Float]) throws -> CLIPIndexEntry {
+        let url = URL(filePath: path)
+        let source = AIImageSource(id: UUID(), url: url, displayName: url.lastPathComponent)
+        let fingerprint = SourceFingerprint(
+            standardizedPath: url.standardizedFileURL.path,
+            fileSize: nil,
+            modificationDate: nil,
+        )
+        let embedding = ImageEmbedding(
+            backend: testBackend.backend,
+            modelIdentity: testModel,
+            values: values,
+        )
+        let artifact = try SimilarityArtifact(
+            descriptor: SimilarityArtifactDescriptor(
+                backend: testBackend,
+                dimensions: values.count,
+                sourceFingerprint: fingerprint,
+            ),
+            payload: JSONEncoder().encode(embedding),
+        )
+        return CLIPIndexEntry(source: source, fingerprint: fingerprint, artifact: artifact)
     }
 }
 

@@ -8,6 +8,7 @@ nonisolated enum CLIPFeatureError: Error, CustomStringConvertible, Sendable {
     case cannotReadDirectory(String)
     case cannotDecodeImage(String)
     case emptyQuery
+    case imageNotIndexed(String)
     case missingCompatibleIndex
     case modelNotConfigured
 
@@ -16,6 +17,7 @@ nonisolated enum CLIPFeatureError: Error, CustomStringConvertible, Sendable {
         case let .cannotReadDirectory(path): "Cannot read image directory: \(path)"
         case let .cannotDecodeImage(path): "Cannot decode image: \(path)"
         case .emptyQuery: "Enter a semantic search description."
+        case let .imageNotIndexed(name): "Index \(name) before searching for similar images."
         case .missingCompatibleIndex: "Index the selected folder with the current model before searching."
         case .modelNotConfigured: "Choose and verify a compatible CLIP model in Settings first."
         }
@@ -299,6 +301,13 @@ final nonisolated class CLIPSearchEngine: Sendable {
                 path: item.0.source.url.path,
             )
         }
+    }
+
+    func search(similarTo imageURL: URL, limit: Int) async throws -> [CLIPSearchResult] {
+        guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
+            throw CLIPFeatureError.missingCompatibleIndex
+        }
+        return try CLIPSimilaritySearch.results(in: index, anchorURL: imageURL, limit: limit)
     }
 
     func evaluateImageSimilarity(neighborLimit: Int = 10) async throws -> CLIPSimilarityEvaluation {

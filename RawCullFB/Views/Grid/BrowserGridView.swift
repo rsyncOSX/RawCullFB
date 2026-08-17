@@ -13,7 +13,7 @@ struct BrowserGridView: View {
 
     private var columns: [GridItem] {
         [
-            GridItem(.adaptive(minimum: thumbnailMinimumWidth, maximum: thumbnailMaximumWidth), spacing: gridSpacing)
+            GridItem(.adaptive(minimum: thumbnailMinimumWidth, maximum: thumbnailMaximumWidth), spacing: gridSpacing),
         ]
     }
 
@@ -48,17 +48,25 @@ struct BrowserGridView: View {
         }
         .overlay {
             if viewModel.displayedFiles.isEmpty, !viewModel.isScanning, !viewModel.isSearching {
-                ContentUnavailableView(
-                    viewModel.semanticSearchQuery.isEmpty ? "No Supported Files" : "No Semantic Matches",
-                    systemImage: viewModel.semanticSearchQuery.isEmpty
-                        ? "photo.on.rectangle.angled"
-                        : "sparkle.magnifyingglass",
-                    description: Text(
-                        viewModel.semanticSearchQuery.isEmpty
-                            ? "Choose a folder containing RAW, JPEG, TIFF, or PNG files."
-                            : "Try a different description or increase the result limit in Settings.",
-                    ),
-                )
+                if viewModel.isShowingSimilarityResults {
+                    ContentUnavailableView(
+                        "No Similar Images",
+                        systemImage: "photo.stack",
+                        description: Text("The index contains no other compatible images."),
+                    )
+                } else {
+                    ContentUnavailableView(
+                        viewModel.semanticSearchQuery.isEmpty ? "No Supported Files" : "No Semantic Matches",
+                        systemImage: viewModel.semanticSearchQuery.isEmpty
+                            ? "photo.on.rectangle.angled"
+                            : "sparkle.magnifyingglass",
+                        description: Text(
+                            viewModel.semanticSearchQuery.isEmpty
+                                ? "Choose a folder containing RAW, JPEG, TIFF, or PNG files."
+                                : "Try a different description or increase the result limit in Settings.",
+                        ),
+                    )
+                }
             }
 
             if viewModel.isSearching {
