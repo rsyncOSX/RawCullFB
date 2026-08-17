@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BrowserSidebarView: View {
     @Bindable var viewModel: FileBrowserViewModel
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         List(selection: selectedFolderBinding) {
@@ -12,18 +13,27 @@ struct BrowserSidebarView: View {
             }
         }
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        .focusable()
-        .onKeyPress(.upArrow) {
-            keyPressResult(viewModel.moveSidebarSelection(by: -1))
-        }
-        .onKeyPress(.downArrow) {
-            keyPressResult(viewModel.moveSidebarSelection(by: 1))
-        }
-        .onKeyPress(.leftArrow) {
-            keyPressResult(viewModel.collapseSelectedSidebarFolder())
-        }
-        .onKeyPress(.rightArrow) {
-            keyPressResult(viewModel.expandSelectedSidebarFolder())
+        .focused($isFocused)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                if !isFocused {
+                    isFocused = true
+                }
+            },
+        )
+        .onMoveCommand { direction in
+            switch direction {
+            case .up:
+                viewModel.moveSidebarSelection(by: -1)
+            case .down:
+                viewModel.moveSidebarSelection(by: 1)
+            case .left:
+                viewModel.collapseSelectedSidebarFolder()
+            case .right:
+                viewModel.expandSelectedSidebarFolder()
+            @unknown default:
+                break
+            }
         }
         .overlay {
             if viewModel.rootFolders.isEmpty {
@@ -77,10 +87,6 @@ struct BrowserSidebarView: View {
                 viewModel.selectFolder(folder)
             }
         }
-    }
-
-    private func keyPressResult(_ handled: Bool) -> KeyPress.Result {
-        handled ? .handled : .ignored
     }
 }
 
