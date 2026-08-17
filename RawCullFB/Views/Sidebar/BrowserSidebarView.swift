@@ -121,12 +121,26 @@ private struct SidebarIndexPanel: View {
             } else {
                 indexStatus
             }
-            
             Button {
-                
+                if viewModel.isShowingSimilarityResults {
+                    viewModel.clearSemanticSearchResults()
+                } else {
+                    viewModel.startSimilaritySearch()
+                }
             } label: {
-                Label("Find Similar", systemImage: "photo.stack")
+                Label(
+                    viewModel.isShowingSimilarityResults ? "Clear Similarity" : "Find Similar",
+                    systemImage: viewModel.isShowingSimilarityResults ? "xmark.circle" : "photo.stack",
+                )
+                .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.bordered)
+            .disabled(!viewModel.isShowingSimilarityResults && !viewModel.canFindSimilar)
+            .help(
+                viewModel.isShowingSimilarityResults
+                    ? "Return to the selected folder"
+                    : "Rank the indexed folder by similarity to the selected image",
+            )
         }
         .padding(10)
         .background(.bar)

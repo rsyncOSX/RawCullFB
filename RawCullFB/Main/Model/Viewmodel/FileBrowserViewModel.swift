@@ -37,6 +37,7 @@ final class FileBrowserViewModel {
     var semanticSearchQuery = ""
     var semanticSearchResults: [CLIPSearchResult] = []
     var semanticSearchActive = false
+    var similaritySearchAnchorName: String?
     var isSearching = false
     var isRunningSemanticTest = false
 
@@ -73,7 +74,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var indexValidationTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var semanticTestTask: Task<Void, Never>?
-    @ObservationIgnored private var semanticFiles: [BrowserFileItem] = []
+    private var semanticFiles: [BrowserFileItem] = []
     @ObservationIgnored private var indexingID = UUID()
     @ObservationIgnored private var indexValidationID = UUID()
     @ObservationIgnored private var searchID = UUID()
@@ -85,6 +86,10 @@ final class FileBrowserViewModel {
 
     var isShowingSemanticResults: Bool {
         semanticSearchActive
+    }
+
+    var isShowingSimilarityResults: Bool {
+        similaritySearchAnchorName != nil
     }
 
     var clipModelPath: String? {
@@ -121,6 +126,10 @@ final class FileBrowserViewModel {
             && !isRunningSemanticTest
     }
 
+    var canFindSimilar: Bool {
+        selectedFile != nil && canSearch
+    }
+
     var canRunSemanticTest: Bool {
         hasCompatibleCLIPIndex
             && clipEngine != nil
@@ -145,6 +154,9 @@ final class FileBrowserViewModel {
     var title: String {
         guard let selectedFolder else { return "RawCullFB" }
         if isShowingSemanticResults {
+            if let similaritySearchAnchorName {
+                return "Similar to \(similaritySearchAnchorName) (\(semanticSearchResults.count) results)"
+            }
             return "Semantic Search (\(semanticSearchResults.count) results)"
         }
         return "\(selectedFolder.name) (\(files.count) files)"
@@ -369,17 +381,22 @@ final class FileBrowserViewModel {
         isSearching = true
         clipFeatureError = nil
         semanticSearchActive = true
+        similaritySearchAnchorName = nil
         semanticSearchResults = []
         semanticFiles = []
         let limit = settings.semanticSearchLimit
         searchTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.searchID == operationID {
+                    self.isSearching = false
+                    self.searchTask = nil
+                }
+            }
             do {
                 let results = try await engine.search(text: query, limit: limit)
                 try Task.checkCancellation()
-                guard self.searchID == operationID,
-                      self.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == query
-                else { return }
+                guard self.searchID == operationID else { return }
                 self.semanticSearchResults = results
                 self.semanticFiles = results.map { BrowserFileItem(url: $0.url) }
                 self.selectedFileID = self.semanticFiles.first?.id
@@ -390,10 +407,52 @@ final class FileBrowserViewModel {
             } catch {
                 guard !Task.isCancelled, self.searchID == operationID else { return }
                 self.clipFeatureError = String(describing: error)
+                self.clearSemanticSearchResults(keepingQuery: true)
             }
-            guard self.searchID == operationID else { return }
-            self.isSearching = false
-            self.searchTask = nil
+        }
+    }
+
+    func startSimilaritySearch() {
+        guard let anchor = selectedFile else { return }
+        guard let engine = clipEngine, hasCompatibleCLIPIndex else {
+            clipFeatureError = CLIPFeatureError.missingCompatibleIndex.description
+            return
+        }
+
+        searchTask?.cancel()
+        let operationID = UUID()
+        searchID = operationID
+        isSearching = true
+        clipFeatureError = nil
+        semanticSearchActive = true
+        similaritySearchAnchorName = anchor.name
+        semanticSearchResults = []
+        semanticFiles = []
+        let limit = settings.semanticSearchLimit
+        searchTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self.searchID == operationID {
+                    self.isSearching = false
+                    self.searchTask = nil
+                }
+            }
+            do {
+                let results = try await engine.search(similarTo: anchor.url, limit: limit)
+                try Task.checkCancellation()
+                guard self.searchID == operationID else { return }
+                self.semanticSearchResults = results
+                self.semanticFiles = results.map { BrowserFileItem(url: $0.url) }
+                self.selectedFileID = self.semanticFiles.first?.id
+                self.selectedFileIDs = Set(self.semanticFiles.first.map { [$0.id] } ?? [])
+                self.selectionAnchorFileID = self.semanticFiles.first?.id
+            } catch is CancellationError {
+                // A newer search owns result publication.
+            } catch {
+                guard !Task.isCancelled, self.searchID == operationID else { return }
+                self.clipFeatureError = String(describing: error)
+                self.clearSemanticSearchResults(keepingQuery: true)
+            }
         }
     }
 
@@ -487,6 +546,7 @@ final class FileBrowserViewModel {
         isSearching = false
         semanticSearchResults = []
         semanticSearchActive = false
+        similaritySearchAnchorName = nil
         semanticFiles = []
         if !keepingQuery {
             semanticSearchQuery = ""
@@ -515,6 +575,7 @@ final class FileBrowserViewModel {
         guard semanticTestID == operationID else { return }
         semanticSearchQuery = query
         semanticSearchActive = true
+        similaritySearchAnchorName = nil
         semanticSearchResults = results
         semanticFiles = results.map { BrowserFileItem(url: $0.url) }
         selectedFileID = semanticFiles.first?.id

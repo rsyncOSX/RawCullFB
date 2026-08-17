@@ -18,6 +18,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
 - Download, select, and verify a CLIP model before enabling indexing or search.
+- Select an indexed image and use **Find Similar** to rank its nearest visual neighbors.
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
