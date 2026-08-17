@@ -950,11 +950,18 @@ final class FileBrowserViewModel {
     }
 
     private func activateSelectedCLIPModel() {
-        guard let url = managedCLIPModelLocations[settings.selectedCLIPModel.downloadID] else {
+        guard let modelURL = managedCLIPModelLocations[settings.selectedCLIPModel.downloadID] else {
             deactivateCLIPModelRuntime()
             return
         }
-        validateCLIPModel(at: url)
+
+        let standardizedURL = modelURL.standardizedFileURL
+        let isCurrentModelReady = activeCLIPModelURL == standardizedURL && clipProvider != nil
+        let isCurrentModelBeingValidated = activeCLIPModelURL == standardizedURL
+            && modelValidationTask != nil
+        guard !isCurrentModelReady, !isCurrentModelBeingValidated else { return }
+
+        validateCLIPModel(at: standardizedURL)
     }
 
     private func performCLIPModelDownload(_ id: CLIPModelDownloadID) async {
