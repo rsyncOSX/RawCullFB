@@ -121,6 +121,12 @@ private struct SidebarIndexPanel: View {
             } else {
                 indexStatus
             }
+            
+            Button {
+                
+            } label: {
+                Label("Find Similar", systemImage: "photo.stack")
+            }
         }
         .padding(10)
         .background(.bar)
