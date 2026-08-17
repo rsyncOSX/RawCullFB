@@ -12,13 +12,7 @@ struct FolderOutlineRow: View {
                     FolderOutlineRow(viewModel: viewModel, folder: child, isRootCatalog: false)
                 }
             } label: {
-                Button {
-                    viewModel.selectFolder(folder)
-                } label: {
-                    folderLabel
-                }
-                .buttonStyle(.plain)
-                .disabled(!viewModel.isSidebarSelectionEnabled)
+                folderLabel
             }
             .tag(folder.id)
             .selectionDisabled(!viewModel.isSidebarSelectionEnabled)
