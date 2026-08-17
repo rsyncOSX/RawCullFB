@@ -9,25 +9,17 @@
     {
       "layers" : [
         {
-          "image-name" : "photography.png",
-          "name" : "photography",
-          "position" : {
-            "scale" : 2,
-            "translation-in-points" : [
-              -0.75,
-              -0.75
-            ]
-          }
+          "image-name" : "rawcullfbicon.png",
+          "name" : "rawcullfbicon"
         }
       ],
-      "name" : "Group",
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0.6
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.2
       }
     }
   ],
