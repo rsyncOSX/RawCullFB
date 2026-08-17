@@ -171,7 +171,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-aA")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-aAxX")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,

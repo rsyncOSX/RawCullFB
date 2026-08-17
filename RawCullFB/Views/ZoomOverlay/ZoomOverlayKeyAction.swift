@@ -43,6 +43,9 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
         case "a", "A":
             .toggleFocusPoints
 
+        case "x", "X":
+            .escape
+
         default:
             nil
         }
