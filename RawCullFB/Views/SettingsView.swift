@@ -10,15 +10,17 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         TabView {
-            MemoryTab()
-                .tabItem {
-                    Label("Memory", systemImage: "rectangle.compress.vertical")
-                }
+            Tab("Memory", systemImage: "rectangle.compress.vertical") {
+                MemoryTab()
+            }
 
-            CLIPSettingsTab()
-                .tabItem {
-                    Label("AI Models", systemImage: "sparkle.magnifyingglass")
-                }
+            Tab("AI Models", systemImage: "sparkle.magnifyingglass") {
+                CLIPSettingsTab()
+            }
+
+            Tab("CLIP Indexes", systemImage: "square.stack.3d.up") {
+                CLIPIndexesSettingsTab()
+            }
         }
         .padding(20)
         .frame(width: 520, height: 600)
