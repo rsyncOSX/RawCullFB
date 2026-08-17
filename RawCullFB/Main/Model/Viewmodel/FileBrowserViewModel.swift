@@ -588,6 +588,63 @@ final class FileBrowserViewModel {
         }
     }
 
+    var visibleSidebarFolders: [BrowserFolderItem] {
+        var folders: [BrowserFolderItem] = []
+
+        func appendVisibleFolder(_ folder: BrowserFolderItem) {
+            folders.append(folder)
+            guard isFolderExpanded(folder) else { return }
+            children(of: folder).forEach(appendVisibleFolder)
+        }
+
+        rootFolders.forEach(appendVisibleFolder)
+        return folders
+    }
+
+    @discardableResult
+    func moveSidebarSelection(by offset: Int) -> Bool {
+        guard isSidebarSelectionEnabled, offset != 0 else { return false }
+
+        let folders = visibleSidebarFolders
+        guard !folders.isEmpty else { return false }
+
+        let destinationIndex: Int
+        if let selectedFolder,
+           let selectedIndex = folders.firstIndex(where: { $0.id == selectedFolder.id })
+        {
+            destinationIndex = selectedIndex + offset
+        } else {
+            destinationIndex = offset > 0 ? folders.startIndex : folders.index(before: folders.endIndex)
+        }
+
+        guard folders.indices.contains(destinationIndex) else { return false }
+        selectFolder(folders[destinationIndex])
+        return self.selectedFolder?.id == folders[destinationIndex].id
+    }
+
+    @discardableResult
+    func expandSelectedSidebarFolder() -> Bool {
+        guard isSidebarSelectionEnabled,
+              let selectedFolder,
+              !isFolderExpanded(selectedFolder),
+              !hasLoadedChildren(for: selectedFolder) || !children(of: selectedFolder).isEmpty
+        else { return false }
+
+        setFolder(selectedFolder, expanded: true)
+        return true
+    }
+
+    @discardableResult
+    func collapseSelectedSidebarFolder() -> Bool {
+        guard isSidebarSelectionEnabled,
+              let selectedFolder,
+              isFolderExpanded(selectedFolder)
+        else { return false }
+
+        setFolder(selectedFolder, expanded: false)
+        return true
+    }
+
     func folder(for id: BrowserFolderItem.ID) -> BrowserFolderItem? {
         rootFolders.first { $0.id == id } ?? folderChildren.values.lazy.flatMap { $0 }.first { $0.id == id }
     }

@@ -12,6 +12,19 @@ struct BrowserSidebarView: View {
             }
         }
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        .focusable()
+        .onKeyPress(.upArrow) {
+            keyPressResult(viewModel.moveSidebarSelection(by: -1))
+        }
+        .onKeyPress(.downArrow) {
+            keyPressResult(viewModel.moveSidebarSelection(by: 1))
+        }
+        .onKeyPress(.leftArrow) {
+            keyPressResult(viewModel.collapseSelectedSidebarFolder())
+        }
+        .onKeyPress(.rightArrow) {
+            keyPressResult(viewModel.expandSelectedSidebarFolder())
+        }
         .overlay {
             if viewModel.rootFolders.isEmpty {
                 ContentUnavailableView(
@@ -64,6 +77,10 @@ struct BrowserSidebarView: View {
                 viewModel.selectFolder(folder)
             }
         }
+    }
+
+    private func keyPressResult(_ handled: Bool) -> KeyPress.Result {
+        handled ? .handled : .ignored
     }
 }
 
