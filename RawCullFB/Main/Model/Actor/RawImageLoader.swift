@@ -30,9 +30,15 @@ actor RawImageLoader {
             return children.compactMap { url -> BrowserFolderItem? in
                 let values = try? url.resourceValues(forKeys: keys)
                 guard values?.isDirectory == true, values?.isHidden != true else { return nil }
-                return BrowserFolderItem(url: url, supportedFileCount: Self.supportedFileCount(in: url))
+                return Self.folderItem(at: url)
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        }.value
+    }
+
+    func folderItem(at folderURL: URL) async -> BrowserFolderItem {
+        await Task.detached(priority: .utility) {
+            Self.folderItem(at: folderURL)
         }.value
     }
 
@@ -180,5 +186,13 @@ actor RawImageLoader {
         }
         let renderedImageCount = supportedFiles.count(where: SupportedFileType.isRenderedImage)
         return renderedImageCount > 0 ? renderedImageCount : supportedFiles.count
+    }
+
+    private nonisolated static func folderItem(at folderURL: URL) -> BrowserFolderItem {
+        BrowserFolderItem(
+            url: folderURL,
+            supportedFileCount: supportedFileCount(in: folderURL),
+            hasCLIPIndex: CLIPIndexPaths.containsIndex(in: folderURL),
+        )
     }
 }

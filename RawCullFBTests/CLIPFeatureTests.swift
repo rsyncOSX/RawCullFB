@@ -78,6 +78,25 @@ struct CLIPFeatureTests {
     }
 
     @Test
+    func `Folder discovery marks any stored CLIP index without validating it`() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullFBIndexBadge-\(UUID().uuidString)", isDirectory: true)
+        let indexedFolder = root.appendingPathComponent("indexed", isDirectory: true)
+        let indexDirectory = indexedFolder.appendingPathComponent(".clipbench", isDirectory: true)
+        try FileManager.default.createDirectory(at: indexDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try Data("not a valid index".utf8).write(
+            to: indexDirectory.appendingPathComponent("broken.clipindex"),
+        )
+
+        let folders = await RawImageLoader.shared.discoverFolders(at: root)
+
+        #expect(folders.count == 1)
+        #expect(folders.first?.hasCLIPIndex == true)
+    }
+
+    @Test
     func `Only current or partially outdated indexes allow search`() {
         let directory = URL(filePath: "/tmp/photos", directoryHint: .isDirectory)
         let updatedAt = Date(timeIntervalSince1970: 1)
@@ -93,10 +112,14 @@ struct CLIPFeatureTests {
 
         #expect(valid.allowsSearch)
         #expect(!valid.recommendsUpdate)
+        #expect(valid.indexFileExists == true)
         #expect(needsUpdate.allowsSearch)
         #expect(needsUpdate.recommendsUpdate)
+        #expect(needsUpdate.indexFileExists == true)
         #expect(!CLIPIndexStatus.notFound(directory).allowsSearch)
+        #expect(CLIPIndexStatus.notFound(directory).indexFileExists == false)
         #expect(!CLIPIndexStatus.invalid(directory: directory, reason: "bad index").allowsSearch)
+        #expect(CLIPIndexStatus.invalid(directory: directory, reason: "bad index").indexFileExists == true)
     }
 
     @Test

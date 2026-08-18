@@ -67,6 +67,14 @@ nonisolated enum CLIPIndexStatus: Equatable, Sendable {
             false
         }
     }
+
+    var indexFileExists: Bool? {
+        switch self {
+        case .valid, .needsUpdate, .invalid: true
+        case .notFound: false
+        case .noFolderSelected, .modelRequired, .checking: nil
+        }
+    }
 }
 
 nonisolated struct CLIPSearchResult: Equatable, Identifiable, Sendable {
@@ -431,6 +439,21 @@ final nonisolated class CLIPSearchEngine: Sendable {
 }
 
 nonisolated enum CLIPIndexPaths {
+    static func containsIndex(in directory: URL) -> Bool {
+        let indexDirectory = directory.appendingPathComponent(".clipbench", isDirectory: true)
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: indexDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+        ) else { return false }
+
+        return files.contains { fileURL in
+            guard fileURL.pathExtension.caseInsensitiveCompare("clipindex") == .orderedSame else {
+                return false
+            }
+            return (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+        }
+    }
+
     static func defaultIndexURL(directory: URL, modelFingerprint: String) -> URL {
         let digest = SHA256.hash(data: Data(modelFingerprint.utf8))
         let hash = digest.prefix(16).map { String(format: "%02x", $0) }.joined()
