@@ -58,6 +58,7 @@ struct FolderOutlineRow: View {
             Image(systemName: folder.supportedFileCount > 0 ? "folder.fill" : "folder")
                 .foregroundStyle(folder.supportedFileCount > 0 ? .blue : .secondary)
         }
+        .badge(clipIndexBadge)
     }
 
     private var displayName: String {
@@ -68,6 +69,11 @@ struct FolderOutlineRow: View {
     private var imageCountText: String? {
         guard folder.supportedFileCount > 0 else { return nil }
         return "\(folder.supportedFileCount)"
+    }
+
+    private var clipIndexBadge: Text? {
+        guard folder.hasCLIPIndex else { return nil }
+        return Text("CLIP", comment: "Sidebar badge indicating that a folder contains a CLIP index.")
     }
 
     @ViewBuilder

@@ -353,6 +353,9 @@ final class FileBrowserViewModel {
             else { return }
             self.clipIndexStatus = status
             self.hasCompatibleCLIPIndex = status.allowsSearch
+            if let indexFileExists = status.indexFileExists {
+                self.setCLIPIndexPresence(indexFileExists, for: directory)
+            }
             if status.allowsSearch {
                 self.settings.lastIndexedDirectoryPath = directory.path
                 self.persistSettings()
@@ -602,7 +605,8 @@ final class FileBrowserViewModel {
             }
 
             loadedCatalogs[standardizedURL] = catalog
-            loadedFolders.append(BrowserFolderItem(url: standardizedURL))
+            let loadedFolder = await RawImageLoader.shared.folderItem(at: standardizedURL)
+            loadedFolders.append(loadedFolder)
         }
 
         rememberedCatalogs = loadedCatalogs
@@ -621,7 +625,15 @@ final class FileBrowserViewModel {
         if !rootFolders.contains(where: { $0.url == standardizedURL }) {
             rootFolders.append(folder)
             Task {
-                await loadChildren(for: [folder])
+                let discoveredFolder = await RawImageLoader.shared.folderItem(at: standardizedURL)
+                guard let rootIndex = rootFolders.firstIndex(where: { $0.id == discoveredFolder.id }) else {
+                    return
+                }
+                rootFolders[rootIndex] = discoveredFolder
+                if selectedFolder?.id == discoveredFolder.id {
+                    selectedFolder = discoveredFolder
+                }
+                await loadChildren(for: [discoveredFolder])
             }
         }
         rememberCatalog(at: standardizedURL)
@@ -767,6 +779,34 @@ final class FileBrowserViewModel {
         folderChildren[folder.id] = children
         if rootFolders.contains(where: { $0.id == folder.id }), !children.isEmpty {
             expandedFolderIDs.insert(folder.id)
+        }
+    }
+
+    private func setCLIPIndexPresence(_ isPresent: Bool, for directory: URL) {
+        let folderID = directory.standardizedFileURL
+
+        func updated(_ folder: BrowserFolderItem) -> BrowserFolderItem {
+            BrowserFolderItem(
+                url: folder.url,
+                supportedFileCount: folder.supportedFileCount,
+                hasCLIPIndex: isPresent,
+            )
+        }
+
+        if let index = rootFolders.firstIndex(where: { $0.url.standardizedFileURL == folderID }) {
+            rootFolders[index] = updated(rootFolders[index])
+        }
+
+        for parentID in Array(folderChildren.keys) {
+            guard var children = folderChildren[parentID],
+                  let index = children.firstIndex(where: { $0.url.standardizedFileURL == folderID })
+            else { continue }
+            children[index] = updated(children[index])
+            folderChildren[parentID] = children
+        }
+
+        if let selectedFolder, selectedFolder.url.standardizedFileURL == folderID {
+            self.selectedFolder = updated(selectedFolder)
         }
     }
 
