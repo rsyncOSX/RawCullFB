@@ -14,11 +14,10 @@ enum RememberedCatalogStore {
                 try Data(contentsOf: url)
             }.value
 
-            let catalogs = try JSONDecoder.catalogDecoder.decode(
+            return try JSONDecoder.catalogDecoder.decode(
                 [RememberedCatalog].self,
-                from: data
+                from: data,
             )
-            return catalogs
         } catch {
             return []
         }

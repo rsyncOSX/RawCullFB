@@ -54,10 +54,13 @@ struct CLIPIndexesSettingsTab: View {
         switch viewModel.clipIndexStatus {
         case .notFound:
             "Create Index"
+
         case .needsUpdate:
             "Update Index"
+
         case .invalid:
             "Rebuild Index"
+
         case .noFolderSelected, .modelRequired, .checking, .valid:
             "Index Catalog"
         }
@@ -205,7 +208,6 @@ private struct CLIPIndexReasonSection: View {
     let status: CLIPIndexStatus
     let modelName: String
 
-    @ViewBuilder
     var body: some View {
         switch status {
         case .notFound:
