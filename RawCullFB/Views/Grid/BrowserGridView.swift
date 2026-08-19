@@ -13,7 +13,7 @@ struct BrowserGridView: View {
 
     private var columns: [GridItem] {
         [
-            GridItem(.adaptive(minimum: thumbnailMinimumWidth, maximum: thumbnailMaximumWidth), spacing: gridSpacing),
+            GridItem(.adaptive(minimum: thumbnailMinimumWidth, maximum: thumbnailMaximumWidth), spacing: gridSpacing)
         ]
     }
 

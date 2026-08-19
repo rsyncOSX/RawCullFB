@@ -681,13 +681,11 @@ final class FileBrowserViewModel {
         let folders = visibleSidebarFolders
         guard !folders.isEmpty else { return false }
 
-        let destinationIndex: Int
-        if let selectedFolder,
-           let selectedIndex = folders.firstIndex(where: { $0.id == selectedFolder.id })
-        {
-            destinationIndex = selectedIndex + offset
+        let destinationIndex: Int = if let selectedFolder,
+                                       let selectedIndex = folders.firstIndex(where: { $0.id == selectedFolder.id }) {
+            selectedIndex + offset
         } else {
-            destinationIndex = offset > 0 ? folders.startIndex : folders.index(before: folders.endIndex)
+            offset > 0 ? folders.startIndex : folders.index(before: folders.endIndex)
         }
 
         guard folders.indices.contains(destinationIndex) else { return false }

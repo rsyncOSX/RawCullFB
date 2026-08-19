@@ -25,12 +25,16 @@ struct BrowserSidebarView: View {
             switch direction {
             case .up:
                 viewModel.moveSidebarSelection(by: -1)
+
             case .down:
                 viewModel.moveSidebarSelection(by: 1)
+
             case .left:
                 viewModel.collapseSelectedSidebarFolder()
+
             case .right:
                 viewModel.expandSelectedSidebarFolder()
+
             @unknown default:
                 break
             }
