@@ -17,7 +17,8 @@ struct AboutRawCullFBView: View {
             HStack(spacing: 14) {
                 Image(nsImage: NSApplication.shared.applicationIconImage)
                     .resizable()
-                    .frame(width: 56, height: 56)
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("RawCullFB")
