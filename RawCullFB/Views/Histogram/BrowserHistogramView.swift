@@ -1,5 +1,4 @@
 import CoreGraphics
-import RawCullCore
 import SwiftUI
 
 struct BrowserHistogramView: View {
@@ -24,18 +23,14 @@ struct BrowserHistogramView: View {
         }
         .frame(height: 82)
         .task(id: imageIdentifier) {
-            normalizedBins = await calculateHistogram(from: image)
+            let bins = await BrowserHistogramCalculator.normalizedLuminanceHistogram(from: image)
+            guard !Task.isCancelled else { return }
+            normalizedBins = bins
         }
         .accessibilityLabel("Histogram")
     }
 
     private var imageIdentifier: Int {
         ObjectIdentifier(image).hashValue
-    }
-
-    private nonisolated func calculateHistogram(from image: CGImage) async -> [CGFloat] {
-        await Task.detached(priority: .utility) {
-            HistogramCalculator.normalizedLuminanceHistogram(from: image)
-        }.value
     }
 }
