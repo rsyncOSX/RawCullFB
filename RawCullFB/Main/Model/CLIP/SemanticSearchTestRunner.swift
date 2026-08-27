@@ -40,7 +40,7 @@ nonisolated enum SemanticSearchTestRunner {
     typealias Similarity = @Sendable (Int) async throws -> CLIPSimilarityEvaluation
     typealias Progress = @Sendable (SemanticSearchTestProgress) async -> Void
 
-    static func run(
+    @concurrent static func run(
         directory: URL,
         modelName: String,
         modelFingerprint: String,

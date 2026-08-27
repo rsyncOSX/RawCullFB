@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import RawParserKit
 
 actor RawImageLoader {
@@ -137,9 +138,17 @@ actor RawImageLoader {
             let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: url)
             guard !Task.isCancelled else { return nil }
 
-            if let extracted,
-               let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-                await Self.fullSizeCache.save(jpegData, for: url)
+            if let extracted {
+                let sourceJPEGData = await Self.embeddedPreviewJPEGData(
+                    for: url,
+                    matchingPixelWidth: extracted.width,
+                    height: extracted.height,
+                )
+                guard !Task.isCancelled else { return nil }
+
+                if let jpegData = sourceJPEGData ?? FullSizeJPGDiskCache.jpegData(from: extracted) {
+                    await Self.fullSizeCache.save(jpegData, for: url)
+                }
             }
 
             return extracted
@@ -169,6 +178,72 @@ actor RawImageLoader {
         await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadCGImage(from: url)
         }.value
+    }
+
+    /// Returns camera-authored JPEG bytes only when they match the preview
+    /// selected by RawParserKit, avoiding a second lossy full-size encode.
+    @concurrent private static func embeddedPreviewJPEGData(
+        for url: URL,
+        matchingPixelWidth pixelWidth: Int,
+        height pixelHeight: Int,
+    ) async -> Data? {
+        guard !Task.isCancelled else { return nil }
+
+        switch url.pathExtension.lowercased() {
+        case SupportedFileType.arw.rawValue:
+            guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else {
+                return nil
+            }
+            for location in [locations.fullJPEG, locations.preview, locations.thumbnail].compactMap(\.self) {
+                guard !Task.isCancelled else { return nil }
+                if let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: location, from: url),
+                   jpegData(data, matchesPixelWidth: pixelWidth, height: pixelHeight) {
+                    return data
+                }
+            }
+
+        case SupportedFileType.nef.rawValue:
+            guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else {
+                return nil
+            }
+            for location in [locations.preview, locations.ifd1JPEG].compactMap(\.self) {
+                guard !Task.isCancelled else { return nil }
+                if let data = NikonMakerNoteParser.readEmbeddedJPEGData(at: location, from: url),
+                   jpegData(data, matchesPixelWidth: pixelWidth, height: pixelHeight) {
+                    return data
+                }
+            }
+
+        default:
+            return nil
+        }
+        return nil
+    }
+
+    private nonisolated static func jpegData(
+        _ data: Data,
+        matchesPixelWidth pixelWidth: Int,
+        height pixelHeight: Int,
+    ) -> Bool {
+        guard let dimensions = jpegPixelDimensions(from: data) else { return false }
+        return (dimensions.width == pixelWidth && dimensions.height == pixelHeight)
+            || (dimensions.width == pixelHeight && dimensions.height == pixelWidth)
+    }
+
+    private nonisolated static func jpegPixelDimensions(
+        from data: Data,
+    ) -> (width: Int, height: Int)? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options),
+              let properties = CGImageSourceCopyPropertiesAtIndex(
+                  source,
+                  0,
+                  options,
+              ) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue
+        else { return nil }
+        return (width, height)
     }
 
     private nonisolated static func supportedFileCount(in folderURL: URL) -> Int {
