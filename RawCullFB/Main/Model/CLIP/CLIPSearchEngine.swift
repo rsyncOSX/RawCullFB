@@ -135,7 +135,7 @@ final nonisolated class CLIPSearchEngine: Sendable {
         await (try? indexStore.load(compatibleWith: provider.backendDescriptor)) != nil
     }
 
-    func validateIndex(directory: URL) async -> CLIPIndexStatus {
+    @concurrent func validateIndex(directory: URL) async -> CLIPIndexStatus {
         let standardizedDirectory = directory.standardizedFileURL
         guard FileManager.default.fileExists(atPath: indexStore.fileURL.path) else {
             return .notFound(standardizedDirectory)
@@ -151,9 +151,7 @@ final nonisolated class CLIPSearchEngine: Sendable {
                 )
             }
             try Task.checkCancellation()
-            let sources = try await Task.detached(priority: .utility) {
-                try CLIPImageDiscovery.sources(in: standardizedDirectory)
-            }.value
+            let sources = try CLIPImageDiscovery.sources(in: standardizedDirectory)
             try Task.checkCancellation()
 
             var entriesByPath: [String: CLIPIndexEntry] = [:]
@@ -284,7 +282,7 @@ final nonisolated class CLIPSearchEngine: Sendable {
         )
     }
 
-    func search(text: String, limit: Int) async throws -> [CLIPSearchResult] {
+    @concurrent func search(text: String, limit: Int) async throws -> [CLIPSearchResult] {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw CLIPFeatureError.emptyQuery
         }
@@ -311,14 +309,16 @@ final nonisolated class CLIPSearchEngine: Sendable {
         }
     }
 
-    func search(similarTo imageURL: URL, limit: Int) async throws -> [CLIPSearchResult] {
+    @concurrent func search(similarTo imageURL: URL, limit: Int) async throws -> [CLIPSearchResult] {
         guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
             throw CLIPFeatureError.missingCompatibleIndex
         }
         return try CLIPSimilaritySearch.results(in: index, anchorURL: imageURL, limit: limit)
     }
 
-    func evaluateImageSimilarity(neighborLimit: Int = 10) async throws -> CLIPSimilarityEvaluation {
+    @concurrent func evaluateImageSimilarity(
+        neighborLimit: Int = 10,
+    ) async throws -> CLIPSimilarityEvaluation {
         guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
             throw CLIPFeatureError.missingCompatibleIndex
         }
