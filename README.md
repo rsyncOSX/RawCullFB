@@ -1,6 +1,6 @@
 # RawCullFB
 
-RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic search. It preserves the normal folder browser and zoomable preview while adding recursive semantic search over JPEG, PNG, HEIC/HEIF, TIFF, and Sony ARW files.
+RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic search. It browses and previews JPEG, PNG, HEIC/HEIF, TIFF, Sony ARW, and DNG files, and provides recursive semantic search over supported image formats.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 
 - Add local folders through the macOS folder picker.
 - Browse nested folders in a sidebar.
-- Generate in-memory thumbnails for supported RAW, JPEG, TIFF, and PNG files.
+- Generate in-memory thumbnails for supported RAW files, including Sony ARW and DNG, as well as JPEG, TIFF, and PNG files.
 - Open a zoom overlay with keyboard navigation, pan, and magnification controls.
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
@@ -61,7 +61,7 @@ Requirements are pinned to exact versions or revisions in the Xcode project and 
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs/products used by RawCullFB |
 |---|---:|---|---|
 | [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `6e3216027b267c27ccaf99d334807b18ea1aaec9` | Core AI model discovery and validation, CLIP inference, embedding artifacts, and AI workflow contracts | `CoreAICLIPProvider`, `SourceFingerprint`, `SimilarityArtifact`, `PhotoAIContracts`, `PhotoAIWorkflows` |
-| [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.8` | RAW metadata, embedded previews, thumbnails, focus-point metadata, and supported-format handling | `RawImageLoader`, `BrowserExifInfo`, `RawFocusPoint` |
+| [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.3.0` | RAW metadata, embedded previews, thumbnails, focus-point metadata, and supported-format handling, including Sony ARW and DNG | `RawImageLoader`, `BrowserExifInfo`, `RawFocusPoint` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared image-analysis utilities | `HistogramCalculator.normalizedLuminanceHistogram` |
 
 The Xcode target also links PhotoAIKit's `CoreAIEfficientSAMBackend`, `CoreAISAM3Backend`, `PhotoAIStorage`, and `VisionFeaturePrintBackend` products so the app remains aligned with the shared AI package graph, although the current RawCullFB feature code directly imports only its CLIP, contracts, and workflow products.
