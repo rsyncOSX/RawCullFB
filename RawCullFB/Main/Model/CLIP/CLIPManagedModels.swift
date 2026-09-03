@@ -4,9 +4,9 @@ import System
 
 nonisolated enum CLIPManagedModel: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case dataComp = "data-comp"
-    case openAI = "openai"
+    // case openAI = "openai"
 
-    static let defaultSelection = Self.openAI
+    static let defaultSelection = Self.dataComp
 
     var id: String {
         rawValue
@@ -15,21 +15,21 @@ nonisolated enum CLIPManagedModel: String, CaseIterable, Codable, Hashable, Iden
     var displayName: String {
         switch self {
         case .dataComp: "DataComp"
-        case .openAI: "OpenAI"
+        // case .openAI: "OpenAI"
         }
     }
 
     var downloadID: CLIPModelDownloadID {
         switch self {
         case .dataComp: .clipDataComp
-        case .openAI: .clipOpenAI
+        // case .openAI: .clipOpenAI
         }
     }
 }
 
 nonisolated enum CLIPModelDownloadID: String, CaseIterable, Codable, Identifiable, Sendable {
     case clipDataComp = "clip-datacomp"
-    case clipOpenAI = "clip-openai"
+    // case clipOpenAI = "clip-openai"
 
     var id: String {
         rawValue
@@ -38,7 +38,7 @@ nonisolated enum CLIPModelDownloadID: String, CaseIterable, Codable, Identifiabl
     var model: CLIPManagedModel {
         switch self {
         case .clipDataComp: .dataComp
-        case .clipOpenAI: .openAI
+        // case .clipOpenAI: .openAI
         }
     }
 }
@@ -85,25 +85,6 @@ nonisolated struct CLIPModelDownloadCatalog: Equatable, Sendable {
                 "https://github.com/mlfoundations/open_clip/blob/main/LICENSE",
             ),
             downloadByteCount: 282_966_632,
-        ),
-        CLIPModelDownloadDescriptor(
-            id: .clipOpenAI,
-            displayName: "OpenAI CLIP",
-            purpose: "Image indexing and semantic search.",
-            publisher: "OpenAI",
-            modelVersion: "ViT-B/32",
-            upstreamRevision: "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
-            assetPackID: "no.blogspot.RawCull.models.clip-openai",
-            assetPackModelPath: "Models/CLIP-OpenAI",
-            modelCardURL: requiredURL(
-                "https://huggingface.co/openai/clip-vit-base-patch32",
-            ),
-            licenceName: "MIT License",
-            licenceSummary: "The OpenAI CLIP copyright and permission notice must accompany redistributed copies.",
-            licenceURL: requiredURL(
-                "https://github.com/openai/CLIP/blob/main/LICENSE",
-            ),
-            downloadByteCount: 282_866_068,
         )
     ])
 
@@ -173,7 +154,7 @@ nonisolated protocol CLIPModelDownloadServicing: Sendable {
 
 actor ManagedBackgroundAssetsCLIPModelDownloadService: CLIPModelDownloadServicing {
     static let productionManifestURL = URL(
-        string: "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/manifest.json",
+        string: "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/manifest.json",
     )!
     static let testManifestURL = URL(
         string: "https://example.invalid/rawcullfb/models/manifest.json",
