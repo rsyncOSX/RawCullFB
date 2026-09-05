@@ -7,7 +7,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 - macOS 27 or later
 - **Apple Silicon** (M-series) only
 - Xcode 27 and Swift 6 to build from source
-- A compatible Core AI CLIP model downloaded in the app
+- The DataComp CLIP model downloaded in the app
 
 ## Features
 
@@ -17,27 +17,24 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 - Open a zoom overlay with keyboard navigation, pan, and magnification controls.
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
-- Download, select, and verify a CLIP model before enabling indexing or search.
+- Download and verify DataComp CLIP before enabling indexing or search.
 - Select an indexed image and use **Find Similar** to rank its nearest visual neighbors.
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
 
-## CLIP models
+## CLIP model
 
-RawCullFB offers two downloadable CLIP models. Both run entirely on the Mac and perform the same two jobs: they encode photographs while building an index, and they encode a natural-language query so the app can rank matching photographs. They differ in their training data and learned weights, so the ordering and scores of the results can differ.
+RawCullFB supports DataComp CLIP only. It runs entirely on the Mac and performs two jobs: it encodes photographs while building an index, and it encodes a natural-language query so the app can rank matching photographs.
 
 | Model | Model module | What it does |
 |---|---|---|
-| DataComp CLIP | `CLIP-DataComp` | Uses the LAION/OpenCLIP ViT-B/32 256 px DataComp model for image indexing and semantic search. It can be useful as an alternative retrieval model when its training distribution produces better matches for a catalog. |
-| OpenAI CLIP | `CLIP-OpenAI` | Uses OpenAI's CLIP ViT-B/32 model for image indexing and semantic search. This is the default selection. |
-
-Only one model is active at a time. Each model has its own fingerprinted index, so changing models does not mix incompatible embeddings; index the folder with the newly selected model before comparing its search results.
+| DataComp CLIP | `CLIP-DataComp` | Uses the LAION/OpenCLIP ViT-B/32 256 px DataComp model for image indexing and semantic search. |
 
 ## CLIP workflow
 
 1. Open **RawCullFB > Settings > CLIP**.
-2. Download DataComp CLIP or OpenAI CLIP, accept its licence terms, and select it.
+2. Download DataComp CLIP, accept its licence terms, and select it.
 3. Wait for the model to report a valid verification status.
 4. Select the folder that should become the recursive index root.
 5. Choose **Index Selected Folder** in the main toolbar. Indexing never starts automatically.
