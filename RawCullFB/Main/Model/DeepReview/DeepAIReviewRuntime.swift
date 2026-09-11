@@ -1,4 +1,5 @@
 import CoreAISAM3Backend
+import CoreGraphics
 import Foundation
 import PhotoAIContracts
 import PhotoAIStorage
@@ -18,7 +19,7 @@ final class DeepAIReviewRuntime {
         let maskDirectory = Self.defaultMaskDirectory()
         let diskStore = try? SubjectMaskDiskStore(cacheDirectory: maskDirectory)
         self.diskStore = diskStore
-        self.subjectMaskStores = [memoryStore] + diskStore.map { [$0] } ?? []
+        self.subjectMaskStores = [memoryStore] + (diskStore.map { [$0] } ?? [])
         let provider = UnavailableSegmentationProvider()
         let configuration = SubjectMaskRepositoryConfiguration(
             defaultPrompt: .subject,
