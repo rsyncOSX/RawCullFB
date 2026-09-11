@@ -516,7 +516,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -542,7 +542,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -570,7 +570,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCullFB.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -596,7 +596,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -622,7 +622,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullFBModelDownloader/RawCullFBModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -635,7 +635,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB.ModelDownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -656,7 +656,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullFBModelDownloader/RawCullFBModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -669,7 +669,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullFB.ModelDownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -730,7 +730,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit";
 			requirement = {
 				kind = revision;
-				revision = 6e3216027b267c27ccaf99d334807b18ea1aaec9;
+				revision = 8c983e72ad97a36f18d0ddfb7003d3b5356ab7b7;
 			};
 		};
 		E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
