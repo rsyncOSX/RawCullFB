@@ -29,6 +29,7 @@ nonisolated enum CLIPManagedModel: String, CaseIterable, Codable, Hashable, Iden
 
 nonisolated enum CLIPModelDownloadID: String, CaseIterable, Codable, Identifiable, Sendable {
     case clipDataComp = "clip-datacomp"
+    case sam3
     // case clipOpenAI = "clip-openai"
 
     var id: String {
@@ -37,7 +38,7 @@ nonisolated enum CLIPModelDownloadID: String, CaseIterable, Codable, Identifiabl
 
     var model: CLIPManagedModel {
         switch self {
-        case .clipDataComp: .dataComp
+        case .clipDataComp, .sam3: .dataComp
         // case .clipOpenAI: .openAI
         }
     }
@@ -85,6 +86,25 @@ nonisolated struct CLIPModelDownloadCatalog: Equatable, Sendable {
                 "https://github.com/mlfoundations/open_clip/blob/main/LICENSE",
             ),
             downloadByteCount: 282_966_632,
+        ),
+        CLIPModelDownloadDescriptor(
+            id: .sam3,
+            displayName: "Meta SAM 3",
+            purpose: "Local subject segmentation for Deep Review.",
+            publisher: "Meta",
+            modelVersion: "SAM 3",
+            upstreamRevision: "3c879f39826c281e95690f02c7821c4de09afae7",
+            assetPackID: "no.blogspot.RawCull.models.sam3",
+            assetPackModelPath: "Models/SAM3",
+            modelCardURL: requiredURL(
+                "https://huggingface.co/facebook/sam3/tree/3c879f39826c281e95690f02c7821c4de09afae7",
+            ),
+            licenceName: "SAM License",
+            licenceSummary: "The SAM License contains redistribution, prohibited-use, trade-control, termination, warranty, liability, and indemnification terms.",
+            licenceURL: requiredURL(
+                "https://huggingface.co/facebook/sam3/blob/3c879f39826c281e95690f02c7821c4de09afae7/LICENSE",
+            ),
+            downloadByteCount: 1_542_689_157,
         )
     ])
 
