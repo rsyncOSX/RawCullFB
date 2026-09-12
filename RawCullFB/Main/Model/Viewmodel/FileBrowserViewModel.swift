@@ -134,9 +134,13 @@ final class FileBrowserViewModel {
     }
 
     var canDeepReviewSelection: Bool {
+        shouldPresentDeepReviewAction
+            && !deepAIReviewController.isActionUnavailable
+    }
+
+    var shouldPresentDeepReviewAction: Bool {
         !selectedFileIDs.isEmpty
             && clipModelDownloadStates[.sam3]?.isInstalled == true
-            && !deepAIReviewController.isActionUnavailable
     }
 
     var canRunSemanticTest: Bool {

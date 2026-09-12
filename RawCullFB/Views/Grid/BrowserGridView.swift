@@ -5,6 +5,7 @@ struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
     @FocusState private var isFocused: Bool
     @State private var horizontalThumbnailCount = 1
+    @State private var deepReviewPresentation: BrowserDeepReviewPresentation?
 
     private let thumbnailMinimumWidth: CGFloat = 150
     private let thumbnailMaximumWidth: CGFloat = 220
@@ -75,6 +76,33 @@ struct BrowserGridView: View {
                     .background(.regularMaterial, in: .rect(cornerRadius: 8))
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if viewModel.shouldPresentDeepReviewAction {
+                BrowserDeepReviewSelectionBar(
+                    selectedCount: viewModel.selectedFileIDs.count,
+                    isEnabled: viewModel.canDeepReviewSelection,
+                    action: presentDeepReview,
+                )
+            }
+        }
+        .sheet(item: $deepReviewPresentation) { presentation in
+            DeepAIReviewSheetView(
+                controller: viewModel.deepAIReviewController,
+                groupID: presentation.groupID,
+                groupSignature: presentation.groupSignature,
+                files: presentation.files,
+                onApply: { result in
+                    if let winnerID = result.recommendedFileID,
+                       let winner = presentation.files.first(where: { $0.id == winnerID }) {
+                        viewModel.selectOnlyFile(winner)
+                    }
+                    deepReviewPresentation = nil
+                },
+                onClose: {
+                    deepReviewPresentation = nil
+                },
+            )
+        }
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
@@ -139,4 +167,51 @@ struct BrowserGridView: View {
         let thumbnailCount = Int((availableWidth + gridSpacing) / (thumbnailMinimumWidth + gridSpacing))
         horizontalThumbnailCount = max(1, thumbnailCount)
     }
+
+    private func presentDeepReview() {
+        let files = viewModel.selectedFiles
+        guard !files.isEmpty, viewModel.canDeepReviewSelection else { return }
+
+        let signature = BurstGroupSignature(
+            files: files,
+            catalog: viewModel.selectedFolder?.url,
+        )
+        deepReviewPresentation = BrowserDeepReviewPresentation(
+            groupID: signature.hashValue,
+            groupSignature: signature,
+            files: files,
+        )
+    }
+}
+
+private struct BrowserDeepReviewSelectionBar: View {
+    let selectedCount: Int
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(selectedCount) selected")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button("Deep Review", systemImage: "sparkle.magnifyingglass", action: action)
+                .buttonStyle(.bordered)
+                .disabled(!isEnabled)
+                .help("Review the selected images with local SAM 3 subject-detail analysis")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct BrowserDeepReviewPresentation: Identifiable {
+    let id = UUID()
+    let groupID: Int
+    let groupSignature: BurstGroupSignature
+    let files: [BrowserFileItem]
 }

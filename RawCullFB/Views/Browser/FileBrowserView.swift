@@ -2,7 +2,6 @@ import SwiftUI
 
 struct FileBrowserView: View {
     @Bindable var viewModel: FileBrowserViewModel
-    @State private var deepReviewPresentation: BrowserDeepReviewPresentation?
 
     var body: some View {
         ZStack {
@@ -31,23 +30,6 @@ struct FileBrowserView: View {
         } message: {
             Text(viewModel.clipFeatureError ?? "The CLIP operation could not be completed.")
         }
-        .sheet(item: $deepReviewPresentation) { presentation in
-            DeepAIReviewSheetView(
-                controller: viewModel.deepAIReviewController,
-                groupID: presentation.groupID,
-                groupSignature: presentation.groupSignature,
-                files: presentation.files,
-                onApply: { result in
-                    if let winner = presentation.files.first(where: { $0.id == result.recommendedFileID }) {
-                        viewModel.selectOnlyFile(winner)
-                    }
-                    deepReviewPresentation = nil
-                },
-                onClose: {
-                    deepReviewPresentation = nil
-                },
-            )
-        }
     }
 
     @ToolbarContentBuilder
@@ -62,14 +44,6 @@ struct FileBrowserView: View {
         }
 
         ToolbarItemGroup {
-            Button {
-                presentDeepReview()
-            } label: {
-                Label("Deep Review", systemImage: "sparkle.magnifyingglass")
-            }
-            .disabled(!viewModel.canDeepReviewSelection)
-            .help("Review the selected images with local SAM 3 subject-detail analysis")
-
             TextField("Semantic search", text: $viewModel.semanticSearchQuery)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
@@ -207,25 +181,4 @@ struct FileBrowserView: View {
         }
     }
 
-    private func presentDeepReview() {
-        let files = viewModel.selectedFiles
-        guard !files.isEmpty, viewModel.canDeepReviewSelection else { return }
-
-        let signature = BurstGroupSignature(
-            files: files,
-            catalog: viewModel.selectedFolder?.url,
-        )
-        deepReviewPresentation = BrowserDeepReviewPresentation(
-            groupID: signature.hashValue,
-            groupSignature: signature,
-            files: files,
-        )
-    }
-}
-
-private struct BrowserDeepReviewPresentation: Identifiable {
-    let id = UUID()
-    let groupID: Int
-    let groupSignature: BurstGroupSignature
-    let files: [BrowserFileItem]
 }
