@@ -6,6 +6,8 @@ import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {
+    let deepAIReviewController = DeepAIReviewController()
+
     var rootFolders: [BrowserFolderItem] = []
     var folderChildren: [BrowserFolderItem.ID: [BrowserFolderItem]] = [:]
     var expandedFolderIDs: Set<BrowserFolderItem.ID> = []
@@ -63,6 +65,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var rememberedCatalogs: [URL: RememberedCatalog] = [:]
     @ObservationIgnored private let clipModelManager = CLIPModelManager()
     @ObservationIgnored private let clipModelDownloadCoordinator = CLIPModelDownloadCoordinator()
+    @ObservationIgnored private let deepAIReviewRuntime = DeepAIReviewRuntime()
     @ObservationIgnored private var managedCLIPModelLocations: [CLIPModelDownloadID: URL] = [:]
     @ObservationIgnored private var clipModelDownloadTasks: [CLIPModelDownloadID: Task<Void, Never>] = [:]
     @ObservationIgnored private var clipModelRefreshGeneration = 0
@@ -130,6 +133,12 @@ final class FileBrowserViewModel {
         selectedFile != nil && canSearch
     }
 
+    var canDeepReviewSelection: Bool {
+        !selectedFileIDs.isEmpty
+            && clipModelDownloadStates[.sam3]?.isInstalled == true
+            && !deepAIReviewController.isActionUnavailable
+    }
+
     var canRunSemanticTest: Bool {
         hasCompatibleCLIPIndex
             && clipEngine != nil
@@ -173,8 +182,13 @@ final class FileBrowserViewModel {
         let generation = clipModelRefreshGeneration
         let snapshot = await clipModelDownloadCoordinator.snapshot()
         guard !Task.isCancelled, clipModelRefreshGeneration == generation else { return }
-        clipModelDownloadStates = snapshot.states
         managedCLIPModelLocations = snapshot.managedModelLocations
+        await deepAIReviewRuntime.activateSAM3(
+            at: snapshot.managedModelLocations[.sam3],
+            controller: deepAIReviewController,
+        )
+        guard !Task.isCancelled, clipModelRefreshGeneration == generation else { return }
+        clipModelDownloadStates = snapshot.states
         activateSelectedCLIPModel()
     }
 

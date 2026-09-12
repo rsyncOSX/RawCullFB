@@ -126,6 +126,14 @@ nonisolated enum CLIPModelDownloadState: Equatable, Sendable {
     case removing
     case failed(message: String)
 
+    var isInstalled: Bool {
+        if case .installed = self {
+            true
+        } else {
+            false
+        }
+    }
+
     var installedLocation: URL? {
         guard case let .installed(location) = self else { return nil }
         return location

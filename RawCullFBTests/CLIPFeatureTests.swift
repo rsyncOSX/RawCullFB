@@ -6,31 +6,31 @@ import Testing
 @Suite("CLIP feature")
 struct CLIPFeatureTests {
     @Test
-    func `Managed CLIP catalog matches RawCull asset packs`() {
+    func `Managed AI catalog contains CLIP and SAM 3 asset packs`() {
         let catalog = CLIPModelDownloadCatalog.production
 
-        #expect(catalog.models.map(\.id) == [.clipDataComp, .clipOpenAI])
+        #expect(catalog.models.map(\.id) == [.clipDataComp, .sam3])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.assetPackID
                 == "no.blogspot.RawCull.models.clip-datacomp",
         )
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.assetPackID
-                == "no.blogspot.RawCull.models.clip-openai",
+            catalog.descriptor(for: .sam3)?.assetPackID
+                == "no.blogspot.RawCull.models.sam3",
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.assetPackModelPath
                 == "Models/CLIP-DataComp",
         )
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.assetPackModelPath
-                == "Models/CLIP-OpenAI",
+            catalog.descriptor(for: .sam3)?.assetPackModelPath
+                == "Models/SAM3",
         )
     }
 
     @Test
-    func `OpenAI is the default and managed CLIP selection is persisted`() throws {
-        #expect(BrowserSettings().selectedCLIPModel == .openAI)
+    func `DataComp is the default and managed CLIP selection is persisted`() throws {
+        #expect(BrowserSettings().selectedCLIPModel == .dataComp)
 
         let decoded = try JSONDecoder().decode(
             BrowserSettings.self,

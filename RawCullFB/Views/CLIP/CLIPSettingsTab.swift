@@ -5,28 +5,13 @@ struct CLIPSettingsTab: View {
     @State private var showModelDownloads = false
 
     var body: some View {
-        @Bindable var viewModel = viewModel
-
         Form {
             Section("AI Models") {
-                ForEach(CLIPManagedModel.allCases) { model in
-                    CLIPModelStatusRow(
-                        model: model,
-                        state: viewModel.clipModelDownloadStates[model.downloadID] ?? .checking,
+                ForEach(CLIPModelDownloadCatalog.production.models) { descriptor in
+                    AIModelStatusRow(
+                        name: descriptor.displayName,
+                        state: viewModel.clipModelDownloadStates[descriptor.id] ?? .checking,
                     )
-                }
-
-                Picker("Selected CLIP model", selection: $viewModel.selectedCLIPModel) {
-                    ForEach(CLIPManagedModel.allCases) { model in
-                        Text(model.displayName).tag(model)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .help("Choose the CLIP model RawCullFB uses for indexing and semantic search.")
-
-                LabeledContent("Active model") {
-                    Text(activeModelMessage)
-                        .foregroundStyle(viewModel.clipModelStatus.isAvailable ? .green : .secondary)
                 }
 
                 HStack {
@@ -76,47 +61,28 @@ struct CLIPSettingsTab: View {
             await viewModel.refreshCLIPModels()
         }
     }
-
-    private var activeModelMessage: String {
-        let name = viewModel.selectedCLIPModel.displayName
-        return switch viewModel.clipModelStatus {
-        case let .available(_, _, modelName):
-            "\(name) (\(modelName))"
-
-        case .checking:
-            "Checking \(name)…"
-
-        case .missing:
-            "\(name) is missing"
-
-        case .invalid:
-            "\(name) is invalid"
-
-        case .notConfigured:
-            "Download \(name) to use it"
-        }
-    }
 }
 
-private struct CLIPModelStatusRow: View {
-    let model: CLIPManagedModel
+private struct AIModelStatusRow: View {
+    let name: String
     let state: CLIPModelDownloadState
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: state.iconName)
-                .foregroundStyle(state.color)
-                .accessibilityHidden(true)
-
-            Text("\(model.displayName) CLIP")
+            Text(name)
 
             Spacer()
 
-            Text(state.title)
-                .foregroundStyle(state.color)
+            if state.isInstalled {
+                Label("Installed", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Text(state.title)
+                    .foregroundStyle(.secondary)
+            }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(model.displayName) CLIP model")
+        .accessibilityLabel("\(name) model")
         .accessibilityValue(String(localized: state.title))
     }
 }
