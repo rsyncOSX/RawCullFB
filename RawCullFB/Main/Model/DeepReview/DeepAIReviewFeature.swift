@@ -394,13 +394,19 @@ nonisolated struct RawCullFBDeepReviewImageDecoder: DeepAIReviewImageDecoding, S
         source _: SharpnessScoringSource,
     ) async throws -> CGImage {
         try Task.checkCancellation()
-        guard let image = await RawImageLoader.shared.previewImage(
+        guard let image = await RawImageLoader.shared.thumbnail(
             for: candidate.url,
-            maxPixelSize: maximumPixelSize,
+            targetSize: maximumPixelSize,
+        ),
+        let cgImage = image.cgImage(
+            forProposedRect: nil,
+            context: nil,
+            hints: nil,
         ) else {
             throw DeepAIReviewCandidateIssue.imageDecodeFailed
         }
-        return image
+        try Task.checkCancellation()
+        return cgImage
     }
 }
 
@@ -414,7 +420,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         selector: SubjectMaskSelector,
         decoder: any DeepAIReviewImageDecoding = RawCullFBDeepReviewImageDecoder(),
         focusScorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(),
-        maximumPixelSize: Int = 4320,
+        maximumPixelSize: Int = 2048,
     ) {
         self.selector = selector
         self.decoder = decoder

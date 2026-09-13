@@ -10,6 +10,7 @@ final class DeepAIReviewRuntime {
     private let memoryStore = SubjectMaskMemoryStore()
     private let diskStore: SubjectMaskDiskStore?
     private let inputMaxSide = 4320
+    private let deepReviewMaximumPixelSize = 2048
     private var subjectMaskStores: [any SubjectMaskStoring]
     private var subjectMaskRepository: SubjectMaskRepository
     private var subjectMaskSelector: SubjectMaskSelector
@@ -118,7 +119,10 @@ final class DeepAIReviewRuntime {
         }
 
         controller.install(
-            service: RawCullDeepAIReviewPipeline(selector: subjectMaskSelector),
+            service: RawCullDeepAIReviewPipeline(
+                selector: subjectMaskSelector,
+                maximumPixelSize: min(inputMaxSide, deepReviewMaximumPixelSize),
+            ),
             maskLoader: diskStore.map {
                 DeepAIReviewDiskMaskLoader(
                     repository: subjectMaskRepository,
@@ -157,7 +161,11 @@ final class DeepAIReviewRuntime {
             in: .userDomainMask,
         )[0]
         .appendingPathComponent("RawCullFB", isDirectory: true)
-        .appendingPathComponent("SubjectMasks", isDirectory: true)
+        // Earlier builds decoded the full RAW preview despite requesting a
+        // bounded analysis image, so their cached masks can be tens of
+        // megapixels. Use a new cache generation rather than loading those
+        // oversized artifacts into the subject-outline UI.
+        .appendingPathComponent("SubjectMasks-v2", isDirectory: true)
     }
 }
 

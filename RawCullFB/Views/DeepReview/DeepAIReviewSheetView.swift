@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct DeepAIReviewSheetView: View {
@@ -246,7 +247,7 @@ private struct DeepAIReviewMaskPreview: View {
     let files: [BrowserFileItem]
     let candidate: DeepAIReviewCandidate?
 
-    @State private var image: CGImage?
+    @State private var image: NSImage?
     @State private var maskOverlay: CGImage?
     @State private var isLoading = false
     @State private var isOrganicOutline = false
@@ -267,7 +268,7 @@ private struct DeepAIReviewMaskPreview: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ZStack {
                         if let image {
-                            Image(decorative: image, scale: 1, orientation: .up)
+                            Image(nsImage: image)
                                 .resizable()
                                 .scaledToFit()
                         } else {
@@ -308,9 +309,9 @@ private struct DeepAIReviewMaskPreview: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Mask preview for \(candidate.fileName)")
                 .task(id: file.url) {
-                    image = await RawImageLoader.shared.previewImage(
+                    image = await RawImageLoader.shared.thumbnail(
                         for: file.url,
-                        maxPixelSize: 1200,
+                        targetSize: 1200,
                     )
                 }
             } else {
