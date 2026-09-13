@@ -219,7 +219,10 @@ final class DeepAIReviewFeature {
         for candidate: DeepAIReviewCandidate,
         fileURL: URL,
     ) async -> CGImage? {
-        guard candidate.isCompleted, let prompt = candidate.maskPromptUsed else {
+        guard candidate.isCompleted,
+              let prompt = candidate.maskPromptUsed,
+              let maskLoader
+        else {
             return nil
         }
         let source = AIImageSource(
@@ -227,7 +230,14 @@ final class DeepAIReviewFeature {
             url: fileURL,
             displayName: candidate.fileName,
         )
-        return await maskLoader?.mask(for: source, prompt: prompt)
+        let task = Task.detached(priority: .userInitiated) {
+            await maskLoader.mask(for: source, prompt: prompt)
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     func start(_ request: DeepAIReviewRequest) async {
@@ -254,28 +264,29 @@ final class DeepAIReviewFeature {
         )
 
         let feature = self
-        let task = Task {
+        let task = Task.detached(priority: .userInitiated) {
             do {
                 let result = try await service.review(request) { progress in
                     await feature.receive(progress, generation: runGeneration)
                 }
                 try Task.checkCancellation()
-                guard feature.generation == runGeneration else { return }
-                feature.state = .completing(groupID: request.groupID)
-                feature.results[result.groupSignature] = result
-                feature.rebuildMaskCandidateIndex()
-                feature.state = .completed(result)
+                await feature.receive(result, generation: runGeneration)
             } catch is CancellationError {
-                guard feature.generation == runGeneration else { return }
-                feature.state = .cancelled(groupID: request.groupID)
-            } catch let failure as DeepAIReviewFailure {
-                guard feature.generation == runGeneration else { return }
-                feature.state = .failed(groupID: request.groupID, failure: failure)
-            } catch {
-                guard feature.generation == runGeneration else { return }
-                feature.state = .failed(
+                await feature.receiveCancellation(
                     groupID: request.groupID,
-                    failure: .pipelineFailed(String(describing: error)),
+                    generation: runGeneration,
+                )
+            } catch let failure as DeepAIReviewFailure {
+                await feature.receiveFailure(
+                    failure,
+                    groupID: request.groupID,
+                    generation: runGeneration,
+                )
+            } catch {
+                await feature.receiveFailure(
+                    .pipelineFailed(String(describing: error)),
+                    groupID: request.groupID,
+                    generation: runGeneration,
                 )
             }
         }
@@ -311,6 +322,28 @@ final class DeepAIReviewFeature {
     private func receive(_ progress: DeepAIReviewProgress, generation: Int) {
         guard self.generation == generation, !Task.isCancelled else { return }
         state = .running(progress)
+    }
+
+    private func receive(_ result: DeepAIReviewResult, generation: Int) {
+        guard self.generation == generation, !Task.isCancelled else { return }
+        state = .completing(groupID: result.groupID)
+        results[result.groupSignature] = result
+        rebuildMaskCandidateIndex()
+        state = .completed(result)
+    }
+
+    private func receiveCancellation(groupID: Int, generation: Int) {
+        guard self.generation == generation else { return }
+        state = .cancelled(groupID: groupID)
+    }
+
+    private func receiveFailure(
+        _ failure: DeepAIReviewFailure,
+        groupID: Int,
+        generation: Int,
+    ) {
+        guard self.generation == generation else { return }
+        state = .failed(groupID: groupID, failure: failure)
     }
 
     private func rebuildMaskCandidateIndex() {

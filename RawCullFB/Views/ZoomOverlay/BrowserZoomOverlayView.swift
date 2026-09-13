@@ -3,6 +3,12 @@ import SwiftUI
 struct BrowserZoomOverlayView: View {
     @Bindable var viewModel: FileBrowserViewModel
 
+    private struct SubjectOutlineTaskID: Hashable {
+        let fileID: BrowserFileItem.ID?
+        let prompt: String?
+        let isPresented: Bool
+    }
+
     @State private var lastScale: CGFloat = 1.0
     @State private var lastOffset: CGSize = .zero
     @State private var lastMetadataOffset: CGSize = .zero
@@ -11,6 +17,22 @@ struct BrowserZoomOverlayView: View {
     @State private var keyMonitor: Any?
     @State private var pendingInitialZoomMode: BrowserZoomInitialMode?
     @State private var viewportSize: CGSize = .zero
+    @State private var subjectOutline: CGImage?
+    @State private var showSubjectOutline = false
+    @State private var isLoadingSubjectOutline = false
+
+    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
+        guard let fileID = viewModel.selectedFile?.id else { return nil }
+        return viewModel.deepAIReviewController.maskCandidate(for: fileID)
+    }
+
+    private var subjectOutlineTaskID: SubjectOutlineTaskID {
+        SubjectOutlineTaskID(
+            fileID: viewModel.selectedFile?.id,
+            prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
+            isPresented: showSubjectOutline,
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -24,6 +46,18 @@ struct BrowserZoomOverlayView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: geometry.size.width, height: geometry.size.height)
+
+                        if showSubjectOutline, let subjectOutline {
+                            Image(decorative: subjectOutline, scale: 1, orientation: .up)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .colorMultiply(.orange)
+                                .blendMode(.screen)
+                                .opacity(0.95)
+                                .allowsHitTesting(false)
+                                .transition(.opacity)
+                        }
 
                         if viewModel.isZoomFocusPointVisible,
                            let focusPoint = viewModel.zoomExifInfo?.focusPoint {
@@ -171,7 +205,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-aAxX")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-sSaAxX")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -184,6 +218,11 @@ struct BrowserZoomOverlayView: View {
         }
         .onDisappear {
             removeKeyMonitor()
+            subjectOutline = nil
+            isLoadingSubjectOutline = false
+        }
+        .task(id: subjectOutlineTaskID) {
+            await loadSubjectOutline()
         }
     }
 
@@ -222,6 +261,29 @@ struct BrowserZoomOverlayView: View {
             .disabled(viewModel.zoomExifInfo?.focusPoint == nil)
             .accessibilityLabel("Focus Point")
             .help(viewModel.zoomExifInfo?.focusPoint == nil ? "No focus point found in EXIF data" : "Show focus point")
+
+            Toggle(isOn: $showSubjectOutline) {
+                ZoomControlBadge(width: 62) {
+                    HStack(spacing: 6) {
+                        if isLoadingSubjectOutline {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: showSubjectOutline ? "person.crop.circle.fill" : "person.crop.circle")
+                                .foregroundStyle(showSubjectOutline ? .orange : .primary)
+                        }
+
+                        Text("S")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .toggleStyle(.button)
+            .disabled(subjectOutlineCandidate == nil)
+            .accessibilityLabel("Subject Outline")
+            .help(subjectOutlineCandidate == nil ? "Run Deep Review for this image first" : "Show Deep Review subject outline (S)")
         }
     }
 
@@ -360,6 +422,11 @@ struct BrowserZoomOverlayView: View {
             decreaseZoom()
             return .handled
 
+        case .toggleSubjectOutline:
+            guard subjectOutlineCandidate != nil else { return .ignored }
+            showSubjectOutline.toggle()
+            return .handled
+
         case .toggleFocusPoints:
             toggleFocusPoint()
             return .handled
@@ -369,6 +436,40 @@ struct BrowserZoomOverlayView: View {
     private func dismiss() {
         viewModel.closeZoom()
         resetToFit()
+        subjectOutline = nil
+    }
+
+    private func loadSubjectOutline() async {
+        subjectOutline = nil
+        isLoadingSubjectOutline = false
+        guard showSubjectOutline,
+              let file = viewModel.selectedFile,
+              let candidate = subjectOutlineCandidate
+        else { return }
+
+        isLoadingSubjectOutline = true
+        let mask = await viewModel.deepAIReviewController.mask(
+            for: candidate,
+            in: [file],
+        )
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == file.id
+        else {
+            isLoadingSubjectOutline = false
+            return
+        }
+
+        if let mask {
+            subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+        }
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == file.id
+        else {
+            subjectOutline = nil
+            isLoadingSubjectOutline = false
+            return
+        }
+        isLoadingSubjectOutline = false
     }
 
     private func installKeyMonitor() {
