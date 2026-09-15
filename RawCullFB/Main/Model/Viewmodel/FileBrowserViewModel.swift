@@ -6,6 +6,8 @@ import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {
+    static let defaultQwenPrompt = "Analyze this photo. Does the subject have their eyes open? Is the image in focus? Rate the composition from 1 to 5."
+
     let deepAIReviewController = DeepAIReviewController()
 
     var rootFolders: [BrowserFolderItem] = []
@@ -49,6 +51,11 @@ final class FileBrowserViewModel {
     var semanticTestOutcome: SemanticSearchTestOutcome?
     var hasCompatibleCLIPIndex = false
     var clipFeatureError: String?
+    var qwenPrompt = defaultQwenPrompt
+    var qwenResponse: String?
+    var qwenFeatureError: String?
+    var isQwenResponding = false
+    private(set) var qwenModelStatus: QwenModelStatus = .notConfigured
     private(set) var clipModelDownloadStates: [CLIPModelDownloadID: CLIPModelDownloadState] =
         Dictionary(uniqueKeysWithValues: CLIPModelDownloadID.allCases.map { ($0, .checking) })
 
@@ -66,6 +73,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private let clipModelManager = CLIPModelManager()
     @ObservationIgnored private let clipModelDownloadCoordinator = CLIPModelDownloadCoordinator()
     @ObservationIgnored private let deepAIReviewRuntime = DeepAIReviewRuntime()
+    @ObservationIgnored private let qwenModelManager = QwenModelManager()
     @ObservationIgnored private var managedCLIPModelLocations: [CLIPModelDownloadID: URL] = [:]
     @ObservationIgnored private var clipModelDownloadTasks: [CLIPModelDownloadID: Task<Void, Never>] = [:]
     @ObservationIgnored private var clipModelRefreshGeneration = 0
@@ -77,6 +85,10 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var indexValidationTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var semanticTestTask: Task<Void, Never>?
+    @ObservationIgnored private var qwenValidationTask: Task<Void, Never>?
+    @ObservationIgnored private var qwenResponseTask: Task<Void, Never>?
+    @ObservationIgnored private var activeQwenModelSecurityScopedURL: URL?
+    @ObservationIgnored private var activeQwenModelURL: URL?
     private var semanticFiles: [BrowserFileItem] = []
     @ObservationIgnored private var indexingID = UUID()
     @ObservationIgnored private var indexValidationID = UUID()
@@ -152,6 +164,12 @@ final class FileBrowserViewModel {
             && !isRunningSemanticTest
     }
 
+    var canAskQwen: Bool {
+        qwenModelStatus.isAvailable
+            && !isQwenResponding
+            && !qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var selectedFile: BrowserFileItem? {
         displayedFiles.first { $0.id == selectedFileID }
     }
@@ -178,7 +196,83 @@ final class FileBrowserViewModel {
     func loadSettings() async {
         settings = await BrowserSettingsStore.load()
         await MemoryImageCache.shared.apply(settings: settings)
+        activateSavedQwenModel()
         await refreshCLIPModels()
+    }
+
+    func setQwenModelURL(_ url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        guard startQwenModelSecurityScopedAccess(for: standardizedURL) else {
+            qwenFeatureError = "RawCullFB could not access the selected Qwen model folder."
+            return
+        }
+        settings.qwenModelPath = standardizedURL.path
+        settings.qwenModelBookmarkData = try? standardizedURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil,
+        )
+        persistSettings()
+        validateQwenModel(at: standardizedURL)
+    }
+
+    func validateQwenModelAgain() {
+        guard let url = resolvedQwenModelURL() else {
+            qwenModelStatus = .notConfigured
+            return
+        }
+        guard startQwenModelSecurityScopedAccess(for: url) else {
+            qwenModelStatus = .invalid(
+                url: url,
+                reason: "RawCullFB could not access the selected model folder.",
+            )
+            return
+        }
+        validateQwenModel(at: url)
+    }
+
+    func clearQwenModel() {
+        qwenValidationTask?.cancel()
+        qwenResponseTask?.cancel()
+        activeQwenModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeQwenModelSecurityScopedURL = nil
+        activeQwenModelURL = nil
+        settings.qwenModelPath = nil
+        settings.qwenModelBookmarkData = nil
+        qwenModelStatus = .notConfigured
+        isQwenResponding = false
+        Task { await qwenModelManager.clear() }
+        persistSettings()
+    }
+
+    func askQwen() {
+        let prompt = qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canAskQwen, !prompt.isEmpty else { return }
+
+        qwenResponseTask?.cancel()
+        qwenFeatureError = nil
+        isQwenResponding = true
+        qwenResponseTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let response = try await qwenModelManager.respond(to: prompt)
+                try Task.checkCancellation()
+                guard !response.isEmpty else { throw QwenModelError.emptyResponse }
+                qwenResponse = response
+            } catch is CancellationError {
+                return
+            } catch {
+                qwenFeatureError = error.localizedDescription
+            }
+            isQwenResponding = false
+            qwenResponseTask = nil
+        }
+    }
+
+    func cancelQwenRequest() {
+        qwenResponseTask?.cancel()
+        qwenResponseTask = nil
+        isQwenResponding = false
     }
 
     func refreshCLIPModels() async {
@@ -1001,6 +1095,72 @@ final class FileBrowserViewModel {
     func stopActiveSecurityScopedAccess() {
         activeSecurityScopedURL?.stopAccessingSecurityScopedResource()
         activeSecurityScopedURL = nil
+    }
+
+    func stopQwenModelSecurityScopedAccess() {
+        activeQwenModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeQwenModelSecurityScopedURL = nil
+    }
+
+    private func activateSavedQwenModel() {
+        guard let url = resolvedQwenModelURL() else {
+            qwenModelStatus = .notConfigured
+            return
+        }
+        guard startQwenModelSecurityScopedAccess(for: url) else {
+            qwenModelStatus = .invalid(
+                url: url,
+                reason: "RawCullFB could not access the saved model folder.",
+            )
+            return
+        }
+        validateQwenModel(at: url)
+    }
+
+    private func resolvedQwenModelURL() -> URL? {
+        if let bookmarkData = settings.qwenModelBookmarkData {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale,
+            ) {
+                return url.standardizedFileURL
+            }
+        }
+        return settings.qwenModelPath.map { URL(filePath: $0) }
+    }
+
+    private func startQwenModelSecurityScopedAccess(for url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        if activeQwenModelSecurityScopedURL == standardizedURL {
+            return true
+        }
+        guard standardizedURL.startAccessingSecurityScopedResource() else {
+            return false
+        }
+        activeQwenModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeQwenModelSecurityScopedURL = standardizedURL
+        return true
+    }
+
+    private func validateQwenModel(at url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        activeQwenModelURL = standardizedURL
+        qwenValidationTask?.cancel()
+        qwenResponseTask?.cancel()
+        isQwenResponding = false
+        qwenFeatureError = nil
+        qwenModelStatus = .checking(standardizedURL)
+
+        qwenValidationTask = Task { [weak self] in
+            guard let self else { return }
+            let status = await qwenModelManager.validate(url: standardizedURL)
+            guard !Task.isCancelled, activeQwenModelURL == standardizedURL else { return }
+            qwenModelStatus = status
+            qwenValidationTask = nil
+        }
     }
 
     private func securityScopedURL(for folderURL: URL) -> URL {

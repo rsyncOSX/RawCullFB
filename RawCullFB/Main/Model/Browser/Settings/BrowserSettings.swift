@@ -17,6 +17,8 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
     var selectedCLIPModel = CLIPManagedModel.defaultSelection
     var semanticSearchLimit = 50
     var lastIndexedDirectoryPath: String?
+    var qwenModelPath: String?
+    var qwenModelBookmarkData: Data?
 
     enum CodingKeys: String, CodingKey {
         case memoryCacheSizeMB
@@ -30,6 +32,8 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         case selectedCLIPModel
         case semanticSearchLimit
         case lastIndexedDirectoryPath
+        case qwenModelPath
+        case qwenModelBookmarkData
     }
 
     init() {}
@@ -64,5 +68,7 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
             500,
         )
         lastIndexedDirectoryPath = try container.decodeIfPresent(String.self, forKey: .lastIndexedDirectoryPath)
+        qwenModelPath = try container.decodeIfPresent(String.self, forKey: .qwenModelPath)
+        qwenModelBookmarkData = try container.decodeIfPresent(Data.self, forKey: .qwenModelBookmarkData)
     }
 }

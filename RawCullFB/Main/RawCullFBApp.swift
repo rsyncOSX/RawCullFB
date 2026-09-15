@@ -17,6 +17,7 @@ struct RawCullFBApp: App {
                 }
                 .onDisappear {
                     viewModel.stopActiveSecurityScopedAccess()
+                    viewModel.stopQwenModelSecurityScopedAccess()
                     NSApplication.shared.terminate(nil)
                 }
         }

@@ -3,6 +3,7 @@ import SwiftUI
 struct CLIPSettingsTab: View {
     @Environment(FileBrowserViewModel.self) private var viewModel
     @State private var showModelDownloads = false
+    @State private var showQwenModelPicker = false
 
     var body: some View {
         Form {
@@ -52,14 +53,85 @@ struct CLIPSettingsTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Qwen") {
+                QwenModelStatusRow(status: viewModel.qwenModelStatus)
+
+                ViewThatFits {
+                    HStack(spacing: 8) { qwenActions }
+                    VStack(alignment: .leading, spacing: 8) { qwenActions }
+                }
+
+                Text("Select a local Qwen Core AI model bundle. RawCullFB validates the bundle but does not download or copy it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showModelDownloads) {
             CLIPModelDownloadsView(viewModel: viewModel)
         }
+        .fileImporter(
+            isPresented: $showQwenModelPicker,
+            allowedContentTypes: [.folder],
+        ) { result in
+            guard let url = try? result.get() else { return }
+            viewModel.setQwenModelURL(url)
+        }
         .task {
             await viewModel.refreshCLIPModels()
         }
+    }
+
+    @ViewBuilder
+    private var qwenActions: some View {
+        Button("Select Qwen Model", systemImage: "folder") {
+            showQwenModelPicker = true
+        }
+
+        Button("Validate Again", systemImage: "checkmark.shield") {
+            viewModel.validateQwenModelAgain()
+        }
+        .disabled(viewModel.qwenModelStatus == .notConfigured)
+
+        Button("Clear", systemImage: "xmark.circle", role: .destructive) {
+            viewModel.clearQwenModel()
+        }
+        .disabled(viewModel.qwenModelStatus == .notConfigured)
+    }
+}
+
+private struct QwenModelStatusRow: View {
+    let status: QwenModelStatus
+
+    var body: some View {
+        LabeledContent("Qwen model") {
+            switch status {
+            case .notConfigured:
+                Label("Not selected", systemImage: "minus.circle")
+                    .foregroundStyle(.secondary)
+
+            case .checking:
+                ProgressView("Validating…")
+                    .controlSize(.small)
+
+            case let .available(_, modelName):
+                Label(modelName, systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .textSelection(.enabled)
+
+            case let .missing(url):
+                Label("Missing: \(url.lastPathComponent)", systemImage: "questionmark.folder")
+                    .foregroundStyle(.orange)
+
+            case let .invalid(_, reason):
+                Label(reason, systemImage: "xmark.circle.fill")
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

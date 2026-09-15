@@ -1,6 +1,6 @@
 # RawCullFB
 
-RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic search. It browses and previews JPEG, PNG, HEIC/HEIF, TIFF, Sony ARW, and DNG files, and provides recursive semantic search over supported image formats.
+RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic search, and local Qwen prompts. It browses and previews JPEG, PNG, HEIC/HEIF, TIFF, Sony ARW, and DNG files, and provides recursive semantic search over supported image formats.
 
 ## Requirements
 
@@ -22,6 +22,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing and semantic
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
+- Validate a user-selected Qwen Core AI model bundle and send local prompts from the main toolbar.
 
 ## CLIP model
 

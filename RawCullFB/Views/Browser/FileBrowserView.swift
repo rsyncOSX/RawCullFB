@@ -30,6 +30,22 @@ struct FileBrowserView: View {
         } message: {
             Text(viewModel.clipFeatureError ?? "The CLIP operation could not be completed.")
         }
+        .alert("Qwen Request Failed", isPresented: qwenFailureBinding) {
+            Button("OK") {
+                viewModel.qwenFeatureError = nil
+            }
+        } message: {
+            Text(viewModel.qwenFeatureError ?? "The Qwen request could not be completed.")
+        }
+        .sheet(isPresented: qwenResponseBinding) {
+            if let response = viewModel.qwenResponse {
+                QwenResponseSheetView(
+                    prompt: viewModel.qwenPrompt,
+                    response: response,
+                    onClose: { viewModel.qwenResponse = nil },
+                )
+            }
+        }
     }
 
     @ToolbarContentBuilder
@@ -63,6 +79,31 @@ struct FileBrowserView: View {
             }
             .disabled(!viewModel.canSearch || viewModel.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .help("Search the CLIP index and show up to \(viewModel.semanticSearchLimit) results")
+
+            TextField("Ask Qwen", text: $viewModel.qwenPrompt)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
+                .disabled(!viewModel.qwenModelStatus.isAvailable || viewModel.isQwenResponding)
+                .onSubmit {
+                    viewModel.askQwen()
+                }
+
+            if viewModel.isQwenResponding {
+                Button(role: .cancel) {
+                    viewModel.cancelQwenRequest()
+                } label: {
+                    Label("Cancel Qwen", systemImage: "stop.circle")
+                }
+                .help("Cancel the current Qwen request")
+            } else {
+                Button {
+                    viewModel.askQwen()
+                } label: {
+                    Label("Ask Qwen", systemImage: "bubble.left.and.sparkles")
+                }
+                .disabled(!viewModel.canAskQwen)
+                .help("Send this prompt to the validated local Qwen model")
+            }
 
             Button {
                 viewModel.adjustSemanticSearchLimit(by: -10)
@@ -177,6 +218,26 @@ struct FileBrowserView: View {
         } set: { isPresented in
             if !isPresented {
                 viewModel.clipFeatureError = nil
+            }
+        }
+    }
+
+    private var qwenFailureBinding: Binding<Bool> {
+        Binding {
+            viewModel.qwenFeatureError != nil
+        } set: { isPresented in
+            if !isPresented {
+                viewModel.qwenFeatureError = nil
+            }
+        }
+    }
+
+    private var qwenResponseBinding: Binding<Bool> {
+        Binding {
+            viewModel.qwenResponse != nil
+        } set: { isPresented in
+            if !isPresented {
+                viewModel.qwenResponse = nil
             }
         }
     }

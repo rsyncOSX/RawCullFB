@@ -46,6 +46,18 @@ struct CLIPFeatureTests {
     }
 
     @Test
+    func `Qwen settings are optional and decode when present`() throws {
+        #expect(BrowserSettings().qwenModelPath == nil)
+
+        let decoded = try JSONDecoder().decode(
+            BrowserSettings.self,
+            from: Data(#"{"qwenModelPath":"/tmp/Qwen"}"#.utf8),
+        )
+
+        #expect(decoded.qwenModelPath == "/tmp/Qwen")
+    }
+
+    @Test
     func `Decoded semantic result limit is bounded`() throws {
         let tooSmall = try JSONDecoder().decode(
             BrowserSettings.self,
