@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-RawCullFB uses PhotoAIKit and Apple's `coreai-models` package to validate and run user-selected Core AI CLIP models. CLIP indexing logic is adapted from CLIPBench. RawCullFB does not bundle a CLIP model; users are responsible for selecting a model they are authorized to use under that model's licence.
+RawCullFB uses PhotoAIKit and Apple's `coreai-models` package to validate and run user-selected Core AI CLIP and Qwen vision-language models. CLIP indexing logic is adapted from CLIPBench. RawCullFB does not bundle these models; users are responsible for selecting models they are authorized to use under each model's licence.
 
 ## PhotoAIKit and CLIPBench
 

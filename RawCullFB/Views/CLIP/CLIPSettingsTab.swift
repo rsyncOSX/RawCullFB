@@ -62,7 +62,7 @@ struct CLIPSettingsTab: View {
                     VStack(alignment: .leading, spacing: 8) { qwenActions }
                 }
 
-                Text("Select a local Qwen Core AI model bundle. RawCullFB validates the bundle but does not download or copy it.")
+                Text("Select a local Qwen vision-language Core AI bundle, such as Qwen3-VL-2B-Instruct. RawCullFB validates the bundle but does not download or copy it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

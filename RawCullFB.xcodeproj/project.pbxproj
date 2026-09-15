@@ -280,7 +280,7 @@
 			packageReferences = (
 				FB000001000000000000000F /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
+				E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FB0000010000000000000008 /* Products */;
@@ -727,15 +727,13 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit";
-			requirement = {
-				kind = revision;
-				revision = 27017a322f7e94e78d7711797dc0a65d577d944f;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PhotoAIKit;
 		};
+/* End XCLocalSwiftPackageReference section */
+/* Begin XCRemoteSwiftPackageReference section */
 		E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
@@ -757,42 +755,42 @@
 /* Begin XCSwiftPackageProductDependency section */
 		E90E89EA3028D8D3009F6BCB /* CoreAICLIPBackend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAICLIPBackend;
 		};
 		E90E89EC3028D8D3009F6BCB /* CoreAIEfficientSAMBackend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAIEfficientSAMBackend;
 		};
 		E90E89EE3028D8D3009F6BCB /* CoreAISAM3Backend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAISAM3Backend;
 		};
 		E90E89F03028D8D3009F6BCB /* PhotoAIContracts */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIContracts;
 		};
 		E90E89F23028D8D3009F6BCB /* PhotoAIStorage */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIStorage;
 		};
 		E90E89F43028D8D3009F6BCB /* PhotoAIWorkflows */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = PhotoAIWorkflows;
 		};
 		E90E89F63028D8D3009F6BCB /* VisionFeaturePrintBackend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = VisionFeaturePrintBackend;
 		};
 		E90E89F83028D8D3009F6BCB /* CoreAIQwenBackend */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E90E89E93028D8D3009F6BCB /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			package = E90E89E93028D8D3009F6BCB /* XCLocalSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAIQwenBackend;
 		};
 		E9BCDDC82FF6962A004A4A95 /* RawParserKit */ = {

@@ -1,5 +1,6 @@
 import CoreAIQwenBackend
 import CoreAILanguageModels
+import CoreGraphics
 import Foundation
 import FoundationModels
 
@@ -21,7 +22,7 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
 
 actor QwenModelManager {
     private var provider: CoreAIQwenProvider?
-    private var model: CoreAILanguageModel?
+    private var model: CoreAIVisionLanguageModel?
 
     func validate(url: URL) -> QwenModelStatus {
         let standardizedURL = url.standardizedFileURL
@@ -31,7 +32,13 @@ actor QwenModelManager {
         case let .available(resource):
             do {
                 let provider = try CoreAIQwenProvider.factory.makeProvider(from: resource)
-                model?.unload()
+                guard provider.configuration.modality == .vision else {
+                    clear()
+                    return .invalid(
+                        url: resource.bundleURL,
+                        reason: QwenModelError.visionModelRequired.localizedDescription,
+                    )
+                }
                 self.provider = provider
                 model = nil
                 return .available(
@@ -53,30 +60,31 @@ actor QwenModelManager {
         }
     }
 
-    func respond(to prompt: String) async throws -> String {
+    func respond(to prompt: String, image: CGImage) async throws -> String {
         guard let provider else {
             throw QwenModelError.modelUnavailable
         }
 
-        let model: CoreAILanguageModel
+        let model: CoreAIVisionLanguageModel
         if let loadedModel = self.model {
             model = loadedModel
         } else {
-            let loadedModel = try await provider.makeLanguageModel()
+            let loadedModel = try await provider.makeVisionLanguageModel()
             self.model = loadedModel
             model = loadedModel
         }
 
         let session = LanguageModelSession(model: model)
         let response = try await session.respond(
-            to: prompt,
-            options: GenerationOptions(maximumResponseTokens: 512),
-        )
+            options: GenerationOptions(maximumResponseTokens: 512)
+        ) {
+            Attachment(image)
+            prompt
+        }
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func clear() {
-        model?.unload()
         model = nil
         provider = nil
     }
@@ -89,12 +97,18 @@ actor QwenModelManager {
 
 nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
     case modelUnavailable
+    case visionModelRequired
+    case imageUnavailable
     case emptyResponse
 
     var errorDescription: String? {
         switch self {
         case .modelUnavailable:
             "Select and validate a Qwen model in AI Settings first."
+        case .visionModelRequired:
+            "The selected model is text-only. Select a Qwen vision-language bundle, such as Qwen3-VL-2B-Instruct."
+        case .imageUnavailable:
+            "The selected photo could not be decoded for Qwen."
         case .emptyResponse:
             "Qwen returned an empty response."
         }
