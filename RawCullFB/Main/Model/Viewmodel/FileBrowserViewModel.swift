@@ -6,7 +6,7 @@ import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {
-    static let defaultQwenPrompt = "Analyze this photo. Does the subject have their eyes open? Is the image in focus? Rate the composition from 1 to 5."
+    static let defaultQwenPrompt = "Analyze this photo. Is the image in focus? Rate the composition from 1 to 5."
 
     let deepAIReviewController = DeepAIReviewController()
 
