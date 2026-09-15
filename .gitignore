@@ -17,7 +17,8 @@ Index.noindex/
 ## Swift Package Manager
 .swiftpm/
 .netrc
-Packages/
+Packages/*
+!Packages/PhotoAIKit/
 Package.pins
 SourcePackages/
 

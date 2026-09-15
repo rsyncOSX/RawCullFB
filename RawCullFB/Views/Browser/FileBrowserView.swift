@@ -102,7 +102,7 @@ struct FileBrowserView: View {
                     Label("Ask Qwen", systemImage: "bubble.left.and.text.bubble.right")
                 }
                 .disabled(!viewModel.canAskQwen)
-                .help("Send this prompt to the validated local Qwen model")
+                .help("Ask the local Qwen vision model about the selected photo")
             }
 
             Button {

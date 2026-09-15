@@ -22,7 +22,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
-- Validate a user-selected Qwen Core AI model bundle and send local prompts from the main toolbar.
+- Validate a user-selected Qwen vision-language Core AI bundle and analyze the selected photo locally from the main toolbar.
 
 ## CLIP model
 
@@ -58,7 +58,7 @@ Requirements are pinned to exact versions or revisions in the Xcode project and 
 
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs/products used by RawCullFB |
 |---|---:|---|---|
-| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `20e57359603313af7c2d38cae3e8b6e37f8838ef` | Core AI model discovery and validation, CLIP inference, embedding artifacts, multi-object SAM 3 masks, and AI workflow contracts | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `SourceFingerprint`, `SimilarityArtifact`, `PhotoAIContracts`, `PhotoAIWorkflows` |
+| PhotoAIKit (`photoaikit`) | local package in `Packages/PhotoAIKit` (based on upstream revision `27017a322f7e94e78d7711797dc0a65d577d944f`) | Core AI model discovery and validation, Qwen vision-language loading, CLIP inference, embedding artifacts, multi-object SAM 3 masks, and AI workflow contracts | `CoreAIQwenProvider`, `CoreAICLIPProvider`, `CoreAISAM3Provider`, `PhotoAIContracts`, `PhotoAIWorkflows` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.3.0` | RAW metadata, embedded previews, thumbnails, focus-point metadata, and supported-format handling, including Sony ARW and DNG | `RawImageLoader`, `BrowserExifInfo`, `RawFocusPoint` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared image-analysis utilities | `HistogramCalculator.normalizedLuminanceHistogram` |
 
@@ -68,18 +68,15 @@ Resolved transitive dependencies are recorded here as build inputs even though R
 
 | Resolved identity | Resolved pin | Role in the package graph |
 |---|---:|---|
-| `coreai-models` | revision `bffc38fe48f50e4e962ac9772b64a5b55a605286` | Apple Core AI model and conversion support reached through PhotoAIKit |
-| `eventsource` | `1.4.2` | Server-sent-event transport used by transitive model tooling |
-| `swift-asn1` | `1.7.1` | ASN.1 support reached through the cryptography stack |
-| `swift-atomics` | `1.3.1` | Low-level concurrency primitives used by transitive packages |
+| `coreai-models` | revision `7359dbcf6c3babb4fbfadfd015ffcc1cb6d87420` | Apple Core AI model and conversion support reached through PhotoAIKit |
+| `eventsource` | `1.5.1` | Server-sent-event transport used by transitive model tooling |
+| `swift-asn1` | `1.7.2` | ASN.1 support reached through the cryptography stack |
 | `swift-collections` | `1.6.0` | Collection data structures used by transitive packages |
-| `swift-crypto` | `4.5.1` | Cryptographic primitives used by transitive packages |
-| `swift-huggingface` | `0.9.0` | Hugging Face model download and metadata support used by model tooling |
-| `swift-jinja` | `2.4.2` | Prompt-template rendering used by model tooling |
-| `swift-nio` | `2.101.3` | Networking and event-loop support used transitively |
-| `swift-system` | `1.8.0` | System-call wrappers used transitively |
-| `swift-transformers` | `1.3.3` | Tokenizer and transformer support used by the AI package graph |
-| `xgrammar` | revision `ba00e8bd4d85be96a2fe8cdc561cb08bed899db6` | Grammar-constrained model tooling resolved from its `main` branch |
+| `swift-crypto` | `4.5.2` | Cryptographic primitives used by transitive packages |
+| `swift-huggingface` | `0.10.1` | Hugging Face model download and metadata support used by model tooling |
+| `swift-jinja` | `2.5.1` | Prompt-template rendering used by model tooling |
+| `swift-transformers` | `1.3.4` | Tokenizer and transformer support used by the AI package graph |
+| `xgrammar` | `0.2.2` | Grammar-constrained generation support used by Core AI language models |
 | `yyjson` | `0.12.0` | C JSON engine used by transitive model tooling |
 
 ## Development

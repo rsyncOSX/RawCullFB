@@ -6,7 +6,7 @@ import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {
-    static let defaultQwenPrompt = "Analyze this photo. Does the subject have their eyes open? Is the image in focus? Rate the composition from 1 to 5."
+    static let defaultQwenPrompt = "Analyze this photo. Is the image in focus? Rate the composition from 1 to 5."
 
     let deepAIReviewController = DeepAIReviewController()
 
@@ -166,6 +166,7 @@ final class FileBrowserViewModel {
 
     var canAskQwen: Bool {
         qwenModelStatus.isAvailable
+            && selectedFile != nil
             && !isQwenResponding
             && !qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -247,7 +248,9 @@ final class FileBrowserViewModel {
 
     func askQwen() {
         let prompt = qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard canAskQwen, !prompt.isEmpty else { return }
+        guard canAskQwen, !prompt.isEmpty, let selectedFile else { return }
+        let selectedImageURL = selectedFile.url
+        let previewSize = settings.thumbnailSizeFullSize
 
         qwenResponseTask?.cancel()
         qwenFeatureError = nil
@@ -255,7 +258,14 @@ final class FileBrowserViewModel {
         qwenResponseTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let response = try await qwenModelManager.respond(to: prompt)
+                guard let image = await RawImageLoader.shared.previewImage(
+                    for: selectedImageURL,
+                    maxPixelSize: previewSize,
+                ) else {
+                    throw QwenModelError.imageUnavailable
+                }
+                try Task.checkCancellation()
+                let response = try await qwenModelManager.respond(to: prompt, image: image)
                 try Task.checkCancellation()
                 guard !response.isEmpty else { throw QwenModelError.emptyResponse }
                 qwenResponse = response
