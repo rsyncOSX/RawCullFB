@@ -5,6 +5,40 @@ import Testing
 @Suite("Qwen feature")
 struct QwenFeatureTests {
     @Test
+    func `Structured assessment decodes JSON wrapped in model prose`() throws {
+        let response = """
+            ```json
+            {
+              "subject": "bird on a branch",
+              "compositionScore": 4,
+              "exposureScore": 5,
+              "subjectVisibilityScore": 3,
+              "eyesOpen": true,
+              "problems": ["branch crosses tail"],
+              "strengths": ["clean background"],
+              "confidence": 0.8
+            }
+            ```
+            """
+
+        let assessment = try QwenPhotoAssessment.decodeResponse(response)
+
+        #expect(assessment.subject == "bird on a branch")
+        #expect(assessment.compositionScore == 4)
+        #expect(assessment.eyesOpen == true)
+        #expect(assessment.overallScore > 0.7)
+    }
+
+    @Test
+    func `Structured assessment rejects scores outside the schema`() {
+        let response = #"{"subject":"bird","compositionScore":7,"exposureScore":5,"subjectVisibilityScore":3,"eyesOpen":null,"problems":[],"strengths":[],"confidence":0.8}"#
+
+        #expect(throws: QwenModelError.self) {
+            try QwenPhotoAssessment.decodeResponse(response)
+        }
+    }
+
+    @Test
     func `Qwen manager validates a compatible Core AI bundle`() async throws {
         let bundle = try makeQwenBundle(kind: "vlm")
         defer { try? FileManager.default.removeItem(at: bundle) }

@@ -22,7 +22,9 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
 - Adjust the semantic result limit in steps of ten (default 50, range 10–500).
-- Validate a user-selected Qwen vision-language Core AI bundle and analyze the selected photo locally from the main toolbar.
+- Validate a user-selected Qwen vision-language Core AI bundle and analyze one or more selected photos locally with structured, comparable results.
+- Enrich SAM 3 Deep Review with CLIP subject labels, EXIF autofocus points, and a whole-frame sharpness score.
+- Choose Automatic, Fast, or Full scope when running SAM 3 Deep Review over a selection.
 
 ## CLIP model
 

@@ -91,6 +91,13 @@ struct BrowserGridView: View {
                 groupID: presentation.groupID,
                 groupSignature: presentation.groupSignature,
                 files: presentation.files,
+                onRun: {
+                    await viewModel.startDeepReview(
+                        groupID: presentation.groupID,
+                        groupSignature: presentation.groupSignature,
+                        files: presentation.files,
+                    )
+                },
                 onApply: { result in
                     if let winnerID = result.recommendedFileID,
                        let winner = presentation.files.first(where: { $0.id == winnerID }) {

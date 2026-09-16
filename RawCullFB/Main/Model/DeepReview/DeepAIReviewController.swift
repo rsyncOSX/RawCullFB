@@ -28,6 +28,11 @@ final class DeepAIReviewController {
         set { feature.preset = newValue }
     }
 
+    var scope: DeepAIReviewScope {
+        get { feature.scope }
+        set { feature.scope = newValue }
+    }
+
     var isRunning: Bool {
         feature.isRunning
     }
@@ -122,24 +127,14 @@ final class DeepAIReviewController {
     func start(
         groupID: Int,
         groupSignature: BurstGroupSignature,
-        files: [BrowserFileItem],
+        candidates: [DeepAIReviewInputCandidate],
     ) async {
-        let candidates = files.enumerated().map { index, file in
-            DeepAIReviewInputCandidate(
-                fileID: file.id,
-                fileName: file.name,
-                url: file.url,
-                burstRank: index + 1,
-                normalSharpnessScore: nil,
-                subjectLabel: nil,
-                normalizedAFPoint: nil,
-            )
-        }
         let request = DeepAIReviewRequest(
             groupID: groupID,
             groupSignature: groupSignature,
             candidates: candidates,
             preset: preset,
+            scope: scope,
             scoringSource: .embeddedPreview,
         )
         await feature.start(request)

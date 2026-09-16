@@ -6,7 +6,7 @@ import RawParserKit
 
 @Observable @MainActor
 final class FileBrowserViewModel {
-    static let defaultQwenPrompt = "Analyze this photo. Is the image in focus? Rate the composition from 1 to 5."
+    static let defaultQwenPrompt = "Evaluate the composition, exposure, subject visibility, expression, and obstructions."
 
     let deepAIReviewController = DeepAIReviewController()
 
@@ -52,7 +52,8 @@ final class FileBrowserViewModel {
     var hasCompatibleCLIPIndex = false
     var clipFeatureError: String?
     var qwenPrompt = defaultQwenPrompt
-    var qwenResponse: String?
+    var qwenResults: [QwenPhotoAnalysisResult] = []
+    var qwenProgress: QwenBatchProgress?
     var qwenFeatureError: String?
     var isQwenResponding = false
     private(set) var qwenModelStatus: QwenModelStatus = .notConfigured
@@ -87,6 +88,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var semanticTestTask: Task<Void, Never>?
     @ObservationIgnored private var qwenValidationTask: Task<Void, Never>?
     @ObservationIgnored private var qwenResponseTask: Task<Void, Never>?
+    @ObservationIgnored private var qwenRequestID = UUID()
     @ObservationIgnored private var activeQwenModelSecurityScopedURL: URL?
     @ObservationIgnored private var activeQwenModelURL: URL?
     private var semanticFiles: [BrowserFileItem] = []
@@ -166,7 +168,7 @@ final class FileBrowserViewModel {
 
     var canAskQwen: Bool {
         qwenModelStatus.isAvailable
-            && selectedFile != nil
+            && !selectedFiles.isEmpty
             && !isQwenResponding
             && !qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -235,6 +237,7 @@ final class FileBrowserViewModel {
     func clearQwenModel() {
         qwenValidationTask?.cancel()
         qwenResponseTask?.cancel()
+        qwenRequestID = UUID()
         activeQwenModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
         activeQwenModelSecurityScopedURL = nil
         activeQwenModelURL = nil
@@ -248,31 +251,74 @@ final class FileBrowserViewModel {
 
     func askQwen() {
         let prompt = qwenPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard canAskQwen, !prompt.isEmpty, let selectedFile else { return }
-        let selectedImageURL = selectedFile.url
-        let previewSize = settings.thumbnailSizeFullSize
+        guard canAskQwen, !prompt.isEmpty else { return }
+        let files = selectedFiles
+        let previewSize = min(settings.thumbnailSizePreview, 2048)
 
         qwenResponseTask?.cancel()
+        qwenRequestID = UUID()
+        let requestID = qwenRequestID
         qwenFeatureError = nil
+        qwenResults = []
+        qwenProgress = QwenBatchProgress(
+            completedCount: 0,
+            totalCount: files.count,
+            currentFileName: files.first?.name,
+        )
         isQwenResponding = true
         qwenResponseTask = Task { [weak self] in
             guard let self else { return }
-            do {
-                guard let image = await RawImageLoader.shared.previewImage(
-                    for: selectedImageURL,
-                    maxPixelSize: previewSize,
-                ) else {
-                    throw QwenModelError.imageUnavailable
+            var completed: [QwenPhotoAnalysisResult] = []
+            for (index, file) in files.enumerated() {
+                if Task.isCancelled || qwenRequestID != requestID { break }
+                qwenProgress = QwenBatchProgress(
+                    completedCount: completed.count,
+                    totalCount: files.count,
+                    currentFileName: file.name,
+                )
+                do {
+                    guard let image = await RawImageLoader.shared.previewImage(
+                        for: file.url,
+                        maxPixelSize: previewSize,
+                    ) else {
+                        throw QwenModelError.imageUnavailable
+                    }
+                    try Task.checkCancellation()
+                    let assessment = try await qwenModelManager.assess(
+                        criteria: prompt,
+                        image: image,
+                    )
+                    try Task.checkCancellation()
+                    completed.append(QwenPhotoAnalysisResult(
+                        fileID: file.id,
+                        fileName: file.name,
+                        assessment: assessment,
+                        failure: nil,
+                    ))
+                } catch is CancellationError {
+                    break
+                } catch {
+                    completed.append(QwenPhotoAnalysisResult(
+                        fileID: file.id,
+                        fileName: file.name,
+                        assessment: nil,
+                        failure: error.localizedDescription,
+                    ))
                 }
-                try Task.checkCancellation()
-                let response = try await qwenModelManager.respond(to: prompt, image: image)
-                try Task.checkCancellation()
-                guard !response.isEmpty else { throw QwenModelError.emptyResponse }
-                qwenResponse = response
-            } catch is CancellationError {
-                return
-            } catch {
-                qwenFeatureError = error.localizedDescription
+                guard qwenRequestID == requestID else { return }
+                qwenResults = completed
+                let nextName = files.indices.contains(index + 1) ? files[index + 1].name : nil
+                qwenProgress = QwenBatchProgress(
+                    completedCount: completed.count,
+                    totalCount: files.count,
+                    currentFileName: nextName,
+                )
+            }
+            guard qwenRequestID == requestID else { return }
+            qwenResults = completed
+            qwenProgress = nil
+            if !completed.isEmpty, completed.allSatisfy({ $0.assessment == nil }) {
+                qwenFeatureError = "Qwen could not analyze any of the selected photos."
             }
             isQwenResponding = false
             qwenResponseTask = nil
@@ -280,9 +326,54 @@ final class FileBrowserViewModel {
     }
 
     func cancelQwenRequest() {
+        qwenRequestID = UUID()
         qwenResponseTask?.cancel()
         qwenResponseTask = nil
+        qwenProgress = nil
         isQwenResponding = false
+    }
+
+    func startDeepReview(
+        groupID: Int,
+        groupSignature: BurstGroupSignature,
+        files: [BrowserFileItem],
+    ) async {
+        let preparationFiles = deepAIReviewController.scope == .fast
+            ? Array(files.prefix(8))
+            : files
+        let labels = (try? await clipEngine?.classifySubjects(
+            in: preparationFiles.map(\.url),
+        )) ?? [:]
+        var candidates: [DeepAIReviewInputCandidate] = []
+        candidates.reserveCapacity(preparationFiles.count)
+
+        for (index, file) in preparationFiles.enumerated() {
+            guard !Task.isCancelled else { return }
+            async let metadata = RawImageLoader.shared.metadata(for: file.url)
+            async let thumbnail = RawImageLoader.shared.thumbnail(for: file.url, targetSize: 1024)
+            let (loadedMetadata, loadedThumbnail) = await (metadata, thumbnail)
+            let focusPoint = loadedMetadata?.focusPoint.map {
+                CGPoint(x: CGFloat($0.normalizedX), y: CGFloat($0.normalizedY))
+            }
+            let sharpness = loadedThumbnail.flatMap {
+                $0.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            }.flatMap(WholeImageSharpnessScorer.score)
+            candidates.append(DeepAIReviewInputCandidate(
+                fileID: file.id,
+                fileName: file.name,
+                url: file.url,
+                burstRank: index + 1,
+                normalSharpnessScore: sharpness,
+                subjectLabel: labels[file.url.standardizedFileURL],
+                normalizedAFPoint: focusPoint,
+            ))
+        }
+
+        await deepAIReviewController.start(
+            groupID: groupID,
+            groupSignature: groupSignature,
+            candidates: candidates,
+        )
     }
 
     func refreshCLIPModels() async {
