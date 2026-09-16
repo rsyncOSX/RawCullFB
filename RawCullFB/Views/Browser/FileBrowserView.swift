@@ -38,11 +38,11 @@ struct FileBrowserView: View {
             Text(viewModel.qwenFeatureError ?? "The Qwen request could not be completed.")
         }
         .sheet(isPresented: qwenResponseBinding) {
-            if let response = viewModel.qwenResponse {
+            if !viewModel.qwenResults.isEmpty {
                 QwenResponseSheetView(
                     prompt: viewModel.qwenPrompt,
-                    response: response,
-                    onClose: { viewModel.qwenResponse = nil },
+                    results: viewModel.qwenResults,
+                    onClose: { viewModel.qwenResults = [] },
                 )
             }
         }
@@ -95,14 +95,19 @@ struct FileBrowserView: View {
                     Label("Cancel Qwen", systemImage: "stop.circle")
                 }
                 .help("Cancel the current Qwen request")
+                if let progress = viewModel.qwenProgress {
+                    Text("\(progress.completedCount)/\(progress.totalCount)")
+                        .monospacedDigit()
+                        .help(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis")
+                }
             } else {
                 Button {
                     viewModel.askQwen()
                 } label: {
-                    Label("Ask Qwen", systemImage: "bubble.left.and.text.bubble.right")
+                    Label("Analyze Selection", systemImage: "bubble.left.and.text.bubble.right")
                 }
                 .disabled(!viewModel.canAskQwen)
-                .help("Ask the local Qwen vision model about the selected photo")
+                .help("Analyze the selected photos sequentially with the local Qwen vision model")
             }
 
             Button {
@@ -234,10 +239,10 @@ struct FileBrowserView: View {
 
     private var qwenResponseBinding: Binding<Bool> {
         Binding {
-            viewModel.qwenResponse != nil
+            !viewModel.qwenResults.isEmpty && !viewModel.isQwenResponding
         } set: { isPresented in
             if !isPresented {
-                viewModel.qwenResponse = nil
+                viewModel.qwenResults = []
             }
         }
     }

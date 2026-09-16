@@ -84,6 +84,30 @@ actor QwenModelManager {
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    func assess(criteria: String, image: CGImage) async throws -> QwenPhotoAssessment {
+        let prompt = """
+            Analyze this photograph using these additional criteria:
+            \(criteria)
+
+            Return exactly one JSON object and no Markdown. Use this schema:
+            {
+              "subject": "short description",
+              "compositionScore": 1,
+              "exposureScore": 1,
+              "subjectVisibilityScore": 1,
+              "eyesOpen": null,
+              "problems": ["short issue"],
+              "strengths": ["short strength"],
+              "confidence": 0.0
+            }
+            All three scores must be integers from 1 through 5. Confidence must be from 0 through 1.
+            Use null for eyesOpen when the photograph has no clearly visible eyes.
+            """
+        return try QwenPhotoAssessment.decodeResponse(
+            try await respond(to: prompt, image: image),
+        )
+    }
+
     func clear() {
         model = nil
         provider = nil
@@ -100,6 +124,7 @@ nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
     case visionModelRequired
     case imageUnavailable
     case emptyResponse
+    case invalidStructuredResponse
 
     var errorDescription: String? {
         switch self {
@@ -111,6 +136,8 @@ nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
             "The selected photo could not be decoded for Qwen."
         case .emptyResponse:
             "Qwen returned an empty response."
+        case .invalidStructuredResponse:
+            "Qwen did not return a valid structured photo assessment."
         }
     }
 }

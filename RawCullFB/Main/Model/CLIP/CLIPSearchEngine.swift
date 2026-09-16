@@ -309,6 +309,42 @@ final nonisolated class CLIPSearchEngine: Sendable {
         }
     }
 
+    @concurrent func classifySubjects(in imageURLs: [URL]) async throws -> [URL: String] {
+        guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
+            throw CLIPFeatureError.missingCompatibleIndex
+        }
+        let requestedPaths = Set(imageURLs.map { $0.standardizedFileURL.path })
+        let entries = index.entries.filter {
+            requestedPaths.contains($0.source.url.standardizedFileURL.path)
+        }
+        guard !entries.isEmpty else { return [:] }
+
+        let prompts: [(label: String, text: String)] = [
+            ("person", "a photo of a person"),
+            ("bird", "a photo of a bird"),
+            ("deer", "a photo of a deer"),
+            ("animal", "a photo of an animal"),
+            ("car", "a photo of a car"),
+            ("landscape", "a landscape photo"),
+        ]
+        var bestByPath: [String: (label: String, score: Float)] = [:]
+        for prompt in prompts {
+            try Task.checkCancellation()
+            let textEmbedding = try await provider.embedding(for: prompt.text)
+            for entry in entries {
+                let path = entry.source.url.standardizedFileURL.path
+                let score = try provider.similarity(image: entry.artifact, text: textEmbedding)
+                if score > (bestByPath[path]?.score ?? -.infinity) {
+                    bestByPath[path] = (prompt.label, score)
+                }
+            }
+        }
+        return Dictionary(uniqueKeysWithValues: entries.compactMap { entry in
+            let url = entry.source.url.standardizedFileURL
+            return bestByPath[url.path].map { (url, $0.label) }
+        })
+    }
+
     @concurrent func search(similarTo imageURL: URL, limit: Int) async throws -> [CLIPSearchResult] {
         guard let index = try await indexStore.load(compatibleWith: provider.backendDescriptor) else {
             throw CLIPFeatureError.missingCompatibleIndex

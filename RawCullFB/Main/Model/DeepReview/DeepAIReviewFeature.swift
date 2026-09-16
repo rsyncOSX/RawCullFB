@@ -16,6 +16,14 @@ nonisolated enum DeepAIReviewPreset: String, CaseIterable, Codable, Identifiable
     }
 }
 
+nonisolated enum DeepAIReviewScope: String, CaseIterable, Codable, Identifiable, Sendable {
+    case automatic
+    case fast
+    case full
+
+    var id: String { rawValue }
+}
+
 nonisolated enum DeepAIReviewConfidence: String, Codable, Sendable {
     case high
     case medium
@@ -59,6 +67,7 @@ nonisolated struct DeepAIReviewRequest: Equatable, Sendable {
     let groupSignature: BurstGroupSignature
     let candidates: [DeepAIReviewInputCandidate]
     let preset: DeepAIReviewPreset
+    let scope: DeepAIReviewScope
     let scoringSource: SharpnessScoringSource
 }
 
@@ -168,6 +177,7 @@ nonisolated protocol DeepAIReviewMaskLoading: Sendable {
 @Observable @MainActor
 final class DeepAIReviewFeature {
     var preset: DeepAIReviewPreset = .auto
+    var scope: DeepAIReviewScope = .automatic
     private(set) var state: DeepAIReviewState = .idle
     private(set) var availability: RawCullAICapabilityStatus
     private(set) var results: [BurstGroupSignature: DeepAIReviewResult] = [:]
@@ -260,6 +270,7 @@ final class DeepAIReviewFeature {
             groupID: request.groupID,
             totalCount: RawCullDeepAIReviewPipeline.selectedCandidateCount(
                 from: request.candidates.count,
+                scope: request.scope,
             ),
         )
 
@@ -433,7 +444,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         _ request: DeepAIReviewRequest,
         progress: @escaping @Sendable (DeepAIReviewProgress) async -> Void,
     ) async throws -> DeepAIReviewResult {
-        let candidates = Self.selectedCandidates(from: request.candidates)
+        let candidates = Self.selectedCandidates(
+            from: request.candidates,
+            scope: request.scope,
+        )
         guard !candidates.isEmpty else { throw DeepAIReviewFailure.noCandidates }
 
         var completed: [DeepAIReviewCandidate] = []
@@ -462,8 +476,15 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         return Self.makeResult(request: request, candidates: completed)
     }
 
-    nonisolated static func selectedCandidateCount(from totalCount: Int) -> Int {
-        totalCount > 12 ? min(totalCount, 8) : totalCount
+    nonisolated static func selectedCandidateCount(
+        from totalCount: Int,
+        scope: DeepAIReviewScope,
+    ) -> Int {
+        switch scope {
+        case .automatic: min(totalCount, 12)
+        case .fast: min(totalCount, 8)
+        case .full: totalCount
+        }
     }
 
     nonisolated static func promptAttempts(
@@ -626,17 +647,34 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         )
     }
 
-    private nonisolated static func selectedCandidates(
+    nonisolated static func selectedCandidates(
         from candidates: [DeepAIReviewInputCandidate],
+        scope: DeepAIReviewScope,
     ) -> [DeepAIReviewInputCandidate] {
-        let ranked = candidates.sorted {
+        let selectionOrdered = candidates.sorted {
             if $0.burstRank == $1.burstRank {
                 $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending
             } else {
                 $0.burstRank < $1.burstRank
             }
         }
-        return ranked.count > 12 ? Array(ranked.prefix(8)) : ranked
+        switch scope {
+        case .fast:
+            return Array(selectionOrdered.prefix(8))
+        case .full:
+            return selectionOrdered
+        case .automatic:
+            guard selectionOrdered.count > 12 else { return selectionOrdered }
+            return selectionOrdered
+                .sorted {
+                    let lhs = $0.normalSharpnessScore ?? -.infinity
+                    let rhs = $1.normalSharpnessScore ?? -.infinity
+                    if lhs == rhs { return $0.burstRank < $1.burstRank }
+                    return lhs > rhs
+                }
+                .prefix(12)
+                .sorted { $0.burstRank < $1.burstRank }
+        }
     }
 
     private nonisolated static func automaticPromptAttempts(

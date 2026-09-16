@@ -6,6 +6,7 @@ struct DeepAIReviewSheetView: View {
     let groupID: Int
     let groupSignature: BurstGroupSignature
     let files: [BrowserFileItem]
+    let onRun: () async -> Void
     let onApply: (DeepAIReviewResult) -> Void
     let onClose: () -> Void
 
@@ -21,11 +22,7 @@ struct DeepAIReviewSheetView: View {
                 canApply: result?.recommendedFileID != nil,
                 onRun: {
                     Task {
-                        await controller.start(
-                            groupID: groupID,
-                            groupSignature: groupSignature,
-                            files: files,
-                        )
+                        await onRun()
                     }
                 },
                 onCancel: controller.cancel,
@@ -76,6 +73,15 @@ private struct DeepAIReviewSheetControls: View {
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
+
+            Picker("Scope", selection: $controller.scope) {
+                Text("Automatic (up to 12)").tag(DeepAIReviewScope.automatic)
+                Text("Fast (up to 8)").tag(DeepAIReviewScope.fast)
+                Text("Full selection").tag(DeepAIReviewScope.full)
+            }
+            .frame(width: 190)
+            .disabled(controller.isRunning)
+            .accessibilityHint("Controls how many selected photos Deep Review analyzes.")
 
             if controller.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
