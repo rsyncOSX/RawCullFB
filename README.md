@@ -7,7 +7,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 - macOS 27 or later
 - **Apple Silicon** (M-series) only
 - Xcode 27 and Swift 6 to build from source
-- The DataComp CLIP model downloaded in the app
+- A compatible CLIP model selected from disk or DataComp CLIP downloaded in the app
 
 ## Features
 
@@ -17,7 +17,8 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 - Open a zoom overlay with keyboard navigation, pan, and magnification controls.
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
-- Download and verify DataComp CLIP before enabling indexing or search.
+- Download DataComp CLIP or select and verify a compatible local CLIP/Core AI bundle before enabling indexing or search.
+- Download Meta SAM 3 or select and verify a compatible local SAM 3/Core AI bundle for Deep Review.
 - Select an indexed image and use **Find Similar** to rank its nearest visual neighbors.
 - Recursively and incrementally index a selected folder into its hidden `.clipbench` directory.
 - Search locally with natural-language descriptions and show thumbnail/path results.
@@ -28,7 +29,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 
 ## CLIP model
 
-RawCullFB supports DataComp CLIP only. It runs entirely on the Mac and performs two jobs: it encodes photographs while building an index, and it encodes a natural-language query so the app can rank matching photographs.
+RawCullFB includes a managed DataComp CLIP download and can also validate a user-selected compatible CLIP or SigLIP Core AI bundle. The active model runs entirely on the Mac and performs two jobs: it encodes photographs while building an index, and it encodes a natural-language query so the app can rank matching photographs.
 
 | Model | Model module | What it does |
 |---|---|---|
@@ -36,8 +37,8 @@ RawCullFB supports DataComp CLIP only. It runs entirely on the Mac and performs 
 
 ## CLIP workflow
 
-1. Open **RawCullFB > Settings > CLIP**.
-2. Download DataComp CLIP, accept its licence terms, and select it.
+1. Open **RawCullFB > Settings > AI Models**.
+2. Download DataComp CLIP or choose **Select CLIP Model** to use a compatible local Core AI bundle. A manually selected bundle overrides the downloaded model until the selection is cleared.
 3. Wait for the model to report a valid verification status.
 4. Select the folder that should become the recursive index root.
 5. Choose **Index Selected Folder** in the main toolbar. Indexing never starts automatically.

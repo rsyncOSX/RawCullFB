@@ -18,7 +18,7 @@ struct CLIPIndexesSettingsTab: View {
 
             CLIPIndexReasonSection(
                 status: viewModel.clipIndexStatus,
-                modelName: viewModel.selectedCLIPModel.displayName,
+                modelName: viewModel.activeCLIPModelName,
             )
 
             Section {

@@ -19,6 +19,8 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
     var lastIndexedDirectoryPath: String?
     var qwenModelPath: String?
     var qwenModelBookmarkData: Data?
+    var sam3ModelPath: String?
+    var sam3ModelBookmarkData: Data?
 
     enum CodingKeys: String, CodingKey {
         case memoryCacheSizeMB
@@ -34,6 +36,8 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         case lastIndexedDirectoryPath
         case qwenModelPath
         case qwenModelBookmarkData
+        case sam3ModelPath
+        case sam3ModelBookmarkData
     }
 
     init() {}
@@ -70,5 +74,7 @@ nonisolated struct BrowserSettings: Codable, Equatable, Sendable {
         lastIndexedDirectoryPath = try container.decodeIfPresent(String.self, forKey: .lastIndexedDirectoryPath)
         qwenModelPath = try container.decodeIfPresent(String.self, forKey: .qwenModelPath)
         qwenModelBookmarkData = try container.decodeIfPresent(Data.self, forKey: .qwenModelBookmarkData)
+        sam3ModelPath = try container.decodeIfPresent(String.self, forKey: .sam3ModelPath)
+        sam3ModelBookmarkData = try container.decodeIfPresent(Data.self, forKey: .sam3ModelBookmarkData)
     }
 }

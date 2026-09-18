@@ -57,6 +57,7 @@ final class FileBrowserViewModel {
     var qwenFeatureError: String?
     var isQwenResponding = false
     private(set) var qwenModelStatus: QwenModelStatus = .notConfigured
+    private(set) var sam3ModelStatus: RawCullAICapabilityStatus = .missing(expectedLocations: [])
     private(set) var clipModelDownloadStates: [CLIPModelDownloadID: CLIPModelDownloadState] =
         Dictionary(uniqueKeysWithValues: CLIPModelDownloadID.allCases.map { ($0, .checking) })
 
@@ -65,6 +66,8 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var activeSecurityScopedURL: URL?
     @ObservationIgnored private var activeCLIPModelSecurityScopedURL: URL?
     @ObservationIgnored private var activeCLIPModelURL: URL?
+    @ObservationIgnored private var activeSAM3ModelSecurityScopedURL: URL?
+    @ObservationIgnored private var activeSAM3ModelURL: URL?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var zoomTask: Task<Void, Never>?
@@ -82,6 +85,7 @@ final class FileBrowserViewModel {
     @ObservationIgnored private var clipEngine: CLIPSearchEngine?
     @ObservationIgnored private var clipEngineDirectoryURL: URL?
     @ObservationIgnored private var modelValidationTask: Task<Void, Never>?
+    @ObservationIgnored private var sam3ValidationTask: Task<Void, Never>?
     @ObservationIgnored private var indexingTask: Task<Void, Never>?
     @ObservationIgnored private var indexValidationTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -110,7 +114,14 @@ final class FileBrowserViewModel {
     }
 
     var clipModelPath: String? {
-        managedCLIPModelLocations[settings.selectedCLIPModel.downloadID]?.path
+        activeCLIPModelURL?.path
+    }
+
+    var activeCLIPModelName: String {
+        guard case let .available(_, _, modelName) = clipModelStatus else {
+            return settings.selectedCLIPModel.displayName
+        }
+        return modelName
     }
 
     var selectedCLIPModel: CLIPManagedModel {
@@ -125,6 +136,18 @@ final class FileBrowserViewModel {
 
     var semanticSearchLimit: Int {
         settings.semanticSearchLimit
+    }
+
+    var hasSelectedCLIPModelFolder: Bool {
+        settings.clipModelPath != nil || settings.clipModelBookmarkData != nil
+    }
+
+    var hasSelectedSAM3ModelFolder: Bool {
+        settings.sam3ModelPath != nil || settings.sam3ModelBookmarkData != nil
+    }
+
+    var canValidateSAM3Model: Bool {
+        hasSelectedSAM3ModelFolder || managedCLIPModelLocations[.sam3] != nil
     }
 
     var canIndexSelectedFolder: Bool {
@@ -154,7 +177,7 @@ final class FileBrowserViewModel {
 
     var shouldPresentDeepReviewAction: Bool {
         !selectedFileIDs.isEmpty
-            && clipModelDownloadStates[.sam3]?.isInstalled == true
+            && sam3ModelStatus.isAvailable
     }
 
     var canRunSemanticTest: Bool {
@@ -382,13 +405,9 @@ final class FileBrowserViewModel {
         let snapshot = await clipModelDownloadCoordinator.snapshot()
         guard !Task.isCancelled, clipModelRefreshGeneration == generation else { return }
         managedCLIPModelLocations = snapshot.managedModelLocations
-        await deepAIReviewRuntime.activateSAM3(
-            at: snapshot.managedModelLocations[.sam3],
-            controller: deepAIReviewController,
-        )
-        guard !Task.isCancelled, clipModelRefreshGeneration == generation else { return }
         clipModelDownloadStates = snapshot.states
         activateSelectedCLIPModel()
+        activateSelectedSAM3Model()
     }
 
     func startCLIPModelDownload(_ id: CLIPModelDownloadID) {
@@ -426,7 +445,13 @@ final class FileBrowserViewModel {
 
     func setCLIPModelURL(_ url: URL) {
         let standardizedURL = url.standardizedFileURL
-        guard startCLIPModelSecurityScopedAccess(for: standardizedURL) else { return }
+        guard startCLIPModelSecurityScopedAccess(for: standardizedURL) else {
+            clipModelStatus = .invalid(
+                url: standardizedURL,
+                reason: "RawCullFB could not access the selected CLIP model folder.",
+            )
+            return
+        }
         settings.clipModelPath = standardizedURL.path
         settings.clipModelBookmarkData = try? standardizedURL.bookmarkData(
             options: [.withSecurityScope],
@@ -435,6 +460,10 @@ final class FileBrowserViewModel {
         )
         persistSettings()
         validateCLIPModel(at: standardizedURL)
+    }
+
+    func validateCLIPModelAgain() {
+        activateSelectedCLIPModel(forceValidation: true)
     }
 
     func clearCLIPModel() {
@@ -450,19 +479,43 @@ final class FileBrowserViewModel {
         activeCLIPModelSecurityScopedURL = nil
         settings.clipModelPath = nil
         settings.clipModelBookmarkData = nil
-        settings.lastIndexedDirectoryPath = nil
-        clipModelStatus = .notConfigured
-        clipProvider = nil
-        clipEngine = nil
-        clipEngineDirectoryURL = nil
-        hasCompatibleCLIPIndex = false
-        clipIndexStatus = selectedFolder == nil ? .noFolderSelected : .modelRequired
-        isIndexing = false
-        isSearching = false
-        isRunningSemanticTest = false
-        semanticTestProgress = nil
-        clearSemanticSearchResults()
         persistSettings()
+        deactivateCLIPModelRuntime()
+        activateSelectedCLIPModel()
+    }
+
+    func setSAM3ModelURL(_ url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        guard startSAM3ModelSecurityScopedAccess(for: standardizedURL) else {
+            sam3ModelStatus = .invalid(
+                location: standardizedURL,
+                reason: "RawCullFB could not access the selected SAM 3 model folder.",
+            )
+            return
+        }
+        settings.sam3ModelPath = standardizedURL.path
+        settings.sam3ModelBookmarkData = try? standardizedURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil,
+        )
+        persistSettings()
+        validateSAM3Model(at: standardizedURL)
+    }
+
+    func validateSAM3ModelAgain() {
+        activateSelectedSAM3Model(forceValidation: true)
+    }
+
+    func clearSAM3Model() {
+        sam3ValidationTask?.cancel()
+        activeSAM3ModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeSAM3ModelSecurityScopedURL = nil
+        activeSAM3ModelURL = nil
+        settings.sam3ModelPath = nil
+        settings.sam3ModelBookmarkData = nil
+        persistSettings()
+        activateSelectedSAM3Model(forceValidation: true)
     }
 
     func adjustSemanticSearchLimit(by delta: Int) {
@@ -1203,6 +1256,16 @@ final class FileBrowserViewModel {
         activeQwenModelSecurityScopedURL = nil
     }
 
+    func stopCLIPModelSecurityScopedAccess() {
+        activeCLIPModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeCLIPModelSecurityScopedURL = nil
+    }
+
+    func stopSAM3ModelSecurityScopedAccess() {
+        activeSAM3ModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeSAM3ModelSecurityScopedURL = nil
+    }
+
     private func activateSavedQwenModel() {
         guard let url = resolvedQwenModelURL() else {
             qwenModelStatus = .notConfigured
@@ -1327,8 +1390,23 @@ final class FileBrowserViewModel {
         return settings.clipModelPath.map { URL(filePath: $0) }
     }
 
-    private func activateSelectedCLIPModel() {
-        guard let modelURL = managedCLIPModelLocations[settings.selectedCLIPModel.downloadID] else {
+    private func activateSelectedCLIPModel(forceValidation: Bool = false) {
+        let selectedURL: URL?
+        if let customURL = resolvedCLIPModelURL() {
+            guard startCLIPModelSecurityScopedAccess(for: customURL) else {
+                deactivateCLIPModelRuntime()
+                clipModelStatus = .invalid(
+                    url: customURL,
+                    reason: "RawCullFB could not access the selected CLIP model folder.",
+                )
+                return
+            }
+            selectedURL = customURL
+        } else {
+            selectedURL = managedCLIPModelLocations[settings.selectedCLIPModel.downloadID]
+        }
+
+        guard let modelURL = selectedURL else {
             deactivateCLIPModelRuntime()
             return
         }
@@ -1337,9 +1415,87 @@ final class FileBrowserViewModel {
         let isCurrentModelReady = activeCLIPModelURL == standardizedURL && clipProvider != nil
         let isCurrentModelBeingValidated = activeCLIPModelURL == standardizedURL
             && modelValidationTask != nil
-        guard !isCurrentModelReady, !isCurrentModelBeingValidated else { return }
+        guard forceValidation || (!isCurrentModelReady && !isCurrentModelBeingValidated) else { return }
 
         validateCLIPModel(at: standardizedURL)
+    }
+
+    private func resolvedSAM3ModelURL() -> URL? {
+        if let bookmarkData = settings.sam3ModelBookmarkData {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale,
+            ) {
+                return url.standardizedFileURL
+            }
+        }
+        return settings.sam3ModelPath.map { URL(filePath: $0) }
+    }
+
+    private func activateSelectedSAM3Model(forceValidation: Bool = false) {
+        let selectedURL: URL?
+        if let customURL = resolvedSAM3ModelURL() {
+            guard startSAM3ModelSecurityScopedAccess(for: customURL) else {
+                let invalidStatus = RawCullAICapabilityStatus.invalid(
+                    location: customURL,
+                    reason: "RawCullFB could not access the selected SAM 3 model folder.",
+                )
+                activeSAM3ModelURL = nil
+                sam3ValidationTask?.cancel()
+                sam3ValidationTask = Task { [weak self] in
+                    guard let self else { return }
+                    _ = await deepAIReviewRuntime.activateSAM3(
+                        at: nil,
+                        controller: deepAIReviewController,
+                    )
+                    guard !Task.isCancelled, activeSAM3ModelURL == nil else { return }
+                    sam3ModelStatus = invalidStatus
+                    sam3ValidationTask = nil
+                }
+                return
+            }
+            selectedURL = customURL
+        } else {
+            selectedURL = managedCLIPModelLocations[.sam3]
+        }
+
+        let standardizedURL = selectedURL?.standardizedFileURL
+        guard forceValidation || activeSAM3ModelURL != standardizedURL else { return }
+        validateSAM3Model(at: standardizedURL)
+    }
+
+    private func startSAM3ModelSecurityScopedAccess(for url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        if activeSAM3ModelSecurityScopedURL == standardizedURL {
+            return true
+        }
+        guard standardizedURL.startAccessingSecurityScopedResource() else {
+            return false
+        }
+        activeSAM3ModelSecurityScopedURL?.stopAccessingSecurityScopedResource()
+        activeSAM3ModelSecurityScopedURL = standardizedURL
+        return true
+    }
+
+    private func validateSAM3Model(at url: URL?) {
+        let standardizedURL = url?.standardizedFileURL
+        activeSAM3ModelURL = standardizedURL
+        sam3ValidationTask?.cancel()
+        sam3ModelStatus = .checking(expectedLocations: standardizedURL.map { [$0] } ?? [])
+
+        sam3ValidationTask = Task { [weak self] in
+            guard let self else { return }
+            let status = await deepAIReviewRuntime.activateSAM3(
+                at: standardizedURL,
+                controller: deepAIReviewController,
+            )
+            guard !Task.isCancelled, activeSAM3ModelURL == standardizedURL else { return }
+            sam3ModelStatus = status
+            sam3ValidationTask = nil
+        }
     }
 
     private func performCLIPModelDownload(_ id: CLIPModelDownloadID) async {

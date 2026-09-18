@@ -46,13 +46,16 @@ final class DeepAIReviewRuntime {
     func activateSAM3(
         at url: URL?,
         controller: DeepAIReviewController,
-    ) async {
+    ) async -> RawCullAICapabilityStatus {
         guard let url else {
+            let availability = RawCullAICapabilityStatus.missing(
+                expectedLocations: [Self.defaultSAM3Directory()],
+            )
             installUnavailable(
                 controller: controller,
-                availability: .missing(expectedLocations: [Self.defaultSAM3Directory()]),
+                availability: availability,
             )
-            return
+            return availability
         }
 
         let standardizedURL = url.standardizedFileURL
@@ -61,32 +64,42 @@ final class DeepAIReviewRuntime {
         case let .available(resource):
             do {
                 let provider = try CoreAISAM3Provider.factory.makeProvider(from: resource)
+                let availability = RawCullAICapabilityStatus.available(location: resource.bundleURL)
                 install(
                     provider: provider,
                     controller: controller,
-                    availability: .available(location: resource.bundleURL),
+                    availability: availability,
                 )
+                return availability
             } catch {
+                let availability = RawCullAICapabilityStatus.invalid(
+                    location: standardizedURL,
+                    reason: String(describing: error),
+                )
                 installUnavailable(
                     controller: controller,
-                    availability: .invalid(
-                        location: standardizedURL,
-                        reason: String(describing: error),
-                    ),
+                    availability: availability,
                 )
+                return availability
             }
 
         case .missing:
+            let availability = RawCullAICapabilityStatus.missing(
+                expectedLocations: [standardizedURL],
+            )
             installUnavailable(
                 controller: controller,
-                availability: .missing(expectedLocations: [standardizedURL]),
+                availability: availability,
             )
+            return availability
 
         case let .invalid(url, reason):
+            let availability = RawCullAICapabilityStatus.invalid(location: url, reason: reason)
             installUnavailable(
                 controller: controller,
-                availability: .invalid(location: url, reason: reason),
+                availability: availability,
             )
+            return availability
         }
     }
 
