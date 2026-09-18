@@ -58,6 +58,21 @@ struct CLIPFeatureTests {
     }
 
     @Test
+    func `CLIP and SAM 3 model-folder settings are optional and decode when present`() throws {
+        let defaults = BrowserSettings()
+        #expect(defaults.clipModelPath == nil)
+        #expect(defaults.sam3ModelPath == nil)
+
+        let decoded = try JSONDecoder().decode(
+            BrowserSettings.self,
+            from: Data(#"{"clipModelPath":"/tmp/CLIP","sam3ModelPath":"/tmp/SAM3"}"#.utf8),
+        )
+
+        #expect(decoded.clipModelPath == "/tmp/CLIP")
+        #expect(decoded.sam3ModelPath == "/tmp/SAM3")
+    }
+
+    @Test
     func `Decoded semantic result limit is bounded`() throws {
         let tooSmall = try JSONDecoder().decode(
             BrowserSettings.self,
