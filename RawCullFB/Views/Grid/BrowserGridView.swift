@@ -113,6 +113,7 @@ struct BrowserGridView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
+        .onCopyCommand(perform: copyAction)
         .onAppear {
             isFocused = true
         }
@@ -155,6 +156,15 @@ struct BrowserGridView: View {
                 break
             }
             return .handled
+        }
+    }
+
+    private var copyAction: (() -> [NSItemProvider])? {
+        let files = viewModel.selectedFiles
+        guard !viewModel.zoomOverlayVisible, !files.isEmpty else { return nil }
+
+        return {
+            files.map { NSItemProvider(object: $0.url as NSURL) }
         }
     }
 

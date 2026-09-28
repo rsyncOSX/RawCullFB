@@ -15,6 +15,7 @@ RawCullFB is a macOS SwiftUI photo browser with local CLIP indexing, semantic se
 - Browse nested folders in a sidebar.
 - Generate in-memory thumbnails for supported RAW files, including Sony ARW and DNG, as well as JPEG, TIFF, and PNG files.
 - Open a zoom overlay with keyboard navigation, pan, and magnification controls.
+- Copy selected original files with **Edit > Copy** or **⌘C**, then paste them into a Finder folder with **⌘V**. Grid view copies all selected files; zoom view copies the displayed file.
 - Display available EXIF details such as camera, lens, exposure, ISO, dimensions, and focus point.
 - Prefer matching `.jpg` sidecars for RAW full preview images when present.
 - Download DataComp CLIP or select and verify a compatible local CLIP/Core AI bundle before enabling indexing or search.
