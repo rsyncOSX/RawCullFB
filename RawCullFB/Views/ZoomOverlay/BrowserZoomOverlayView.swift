@@ -3,6 +3,14 @@ import SwiftUI
 struct BrowserZoomOverlayView: View {
     @Bindable var viewModel: FileBrowserViewModel
 
+    private var copyAction: (() -> [NSItemProvider])? {
+        guard let file = viewModel.selectedFile else { return nil }
+
+        return {
+            [NSItemProvider(object: file.url as NSURL)]
+        }
+    }
+
     private struct SubjectOutlineTaskID: Hashable {
         let fileID: BrowserFileItem.ID?
         let prompt: String?
@@ -173,6 +181,7 @@ struct BrowserZoomOverlayView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
+        .onCopyCommand(perform: copyAction)
         .onKeyPress(.leftArrow) {
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: nil,

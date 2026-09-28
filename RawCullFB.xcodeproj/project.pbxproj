@@ -733,7 +733,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit";
 			requirement = {
 				kind = revision;
-				revision = c5c76590c3d79ad508d24d893cd7d8d6aa873355;
+				revision = 77cc1d84a5d98a485caa15be102c8a55eb3d7698;
 			};
 		};
 		E9BCDDC72FF6962A004A4A95 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
