@@ -1,12 +1,12 @@
 {
-  "originHash" : "9f24e1fd39cc97cfced8c377d4f5284b58492c127ec9560ad9388bfb245dd817",
+  "originHash" : "6a0a6da5d46a1ec0488c5127e0dcbe9273619c1791fe6e836fbd6a9295420d9f",
   "pins" : [
     {
       "identity" : "coreai-models",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/coreai-models.git",
       "state" : {
-        "revision" : "7359dbcf6c3babb4fbfadfd015ffcc1cb6d87420"
+        "revision" : "475c585fdb0fe82a83c8f777f259e9414bd44c98"
       }
     },
     {
@@ -23,7 +23,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAIKit",
       "state" : {
-        "revision" : "c5c76590c3d79ad508d24d893cd7d8d6aa873355"
+        "revision" : "77cc1d84a5d98a485caa15be102c8a55eb3d7698"
       }
     },
     {
