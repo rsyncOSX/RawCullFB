@@ -9,6 +9,7 @@ struct DeepAIReviewSheetView: View {
     let onRun: () async -> Void
     let onApply: (DeepAIReviewResult) -> Void
     let onClose: () -> Void
+    var isEmbedded = false
 
     private var result: DeepAIReviewResult? {
         controller.result(for: groupSignature)
@@ -32,6 +33,7 @@ struct DeepAIReviewSheetView: View {
                     }
                 },
                 onClose: onClose,
+                isEmbedded: isEmbedded,
             )
 
             Divider()
@@ -46,7 +48,7 @@ struct DeepAIReviewSheetView: View {
             )
         }
         .padding(16)
-        .frame(minWidth: 1080, idealWidth: 1220, minHeight: 520, idealHeight: 640)
+        .frame(minWidth: 1080, idealWidth: 1220, minHeight: isEmbedded ? 300 : 520, idealHeight: isEmbedded ? 420 : 640)
         .interactiveDismissDisabled(controller.isRunning)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Deep Review")
@@ -61,6 +63,7 @@ private struct DeepAIReviewSheetControls: View {
     let onCancel: () -> Void
     let onApply: () -> Void
     let onClose: () -> Void
+    let isEmbedded: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -96,12 +99,12 @@ private struct DeepAIReviewSheetControls: View {
 
             Spacer()
 
-            Button("Select Winner & Close", systemImage: "checkmark.circle", action: onApply)
+            Button(isEmbedded ? "Select Winner" : "Select Winner & Close", systemImage: "checkmark.circle", action: onApply)
                 .buttonStyle(.borderedProminent)
                 .disabled(!canApply || controller.isRunning)
                 .accessibilityHint("Selects the recommended image and closes Deep Review.")
 
-            Button("Close", systemImage: "xmark", action: onClose)
+            Button(isEmbedded ? "Clear Review" : "Close", systemImage: "xmark", action: onClose)
                 .buttonStyle(.bordered)
                 .disabled(controller.isRunning)
                 .accessibilityHint("Closes Deep Review without changing the selection.")

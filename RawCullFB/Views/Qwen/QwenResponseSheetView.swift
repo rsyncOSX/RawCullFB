@@ -4,6 +4,7 @@ struct QwenResponseSheetView: View {
     let prompt: String
     let results: [QwenPhotoAnalysisResult]
     let onClose: () -> Void
+    var isEmbedded = false
 
     @State private var selectedResultID: UUID?
 
@@ -56,12 +57,12 @@ struct QwenResponseSheetView: View {
 
             HStack {
                 Spacer()
-                Button("Done", action: onClose)
+                Button(isEmbedded ? "Clear Results" : "Done", action: onClose)
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(minWidth: 1080, idealWidth: 1200, minHeight: 520, idealHeight: 640)
+        .frame(minWidth: 1080, idealWidth: 1200, minHeight: isEmbedded ? 300 : 520, idealHeight: isEmbedded ? 420 : 640)
         .task(id: results.map(\.id)) {
             if selectedResultID.map({ id in results.contains { $0.id == id } }) != true {
                 selectedResultID = results.first?.id

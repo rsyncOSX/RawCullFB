@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FileBrowserView: View {
     @Bindable var viewModel: FileBrowserViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         ZStack {
@@ -37,15 +38,7 @@ struct FileBrowserView: View {
         } message: {
             Text(viewModel.qwenFeatureError ?? "The Qwen request could not be completed.")
         }
-        .sheet(isPresented: qwenResponseBinding) {
-            if !viewModel.qwenResults.isEmpty {
-                QwenResponseSheetView(
-                    prompt: viewModel.qwenPrompt,
-                    results: viewModel.qwenResults,
-                    onClose: { viewModel.qwenResults = [] },
-                )
-            }
-        }
+
     }
 
     @ToolbarContentBuilder
@@ -60,159 +53,19 @@ struct FileBrowserView: View {
         }
 
         ToolbarItemGroup {
-            TextField("Semantic search", text: $viewModel.semanticSearchQuery)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
-                .disabled(
-                    !viewModel.hasCompatibleCLIPIndex
-                        || viewModel.isIndexing
-                        || viewModel.isRunningSemanticTest,
-                )
-                .onSubmit {
-                    viewModel.startSemanticSearch()
-                }
-
-            Button {
-                viewModel.startSemanticSearch()
-            } label: {
-                Label("Search", systemImage: "sparkle.magnifyingglass")
+            Button("Preview", systemImage: "arrow.up.left.and.arrow.down.right") {
+                viewModel.openZoom()
             }
-            .disabled(!viewModel.canSearch || viewModel.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .help("Search the CLIP index and show up to \(viewModel.semanticSearchLimit) results")
+            .disabled(viewModel.selectedFile == nil)
+            .help("Preview the selected image (Return)")
 
-            TextField("Ask Qwen", text: $viewModel.qwenPrompt)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 180, idealWidth: 260, maxWidth: 340)
-                .disabled(!viewModel.qwenModelStatus.isAvailable || viewModel.isQwenResponding)
-                .onSubmit {
-                    viewModel.askQwen()
-                }
-
-            if viewModel.isQwenResponding {
-                Button(role: .cancel) {
-                    viewModel.cancelQwenRequest()
-                } label: {
-                    Label("Cancel Qwen", systemImage: "stop.circle")
-                }
-                .help("Cancel the current Qwen request")
-                if let progress = viewModel.qwenProgress {
-                    Text("\(progress.completedCount)/\(progress.totalCount)")
-                        .monospacedDigit()
-                        .help(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis")
-                }
-            } else {
-                Button {
-                    viewModel.askQwen()
-                } label: {
-                    Label("Analyze Selection", systemImage: "bubble.left.and.text.bubble.right")
-                }
-                .disabled(!viewModel.canAskQwen)
-                .help("Analyze the selected photos sequentially with the local Qwen vision model")
+            Button("AI Workspace", systemImage: "sparkles.rectangle.stack") {
+                openWindow(id: "ai-workspace")
             }
+            .help("Review, analyze subjects, and search while browsing")
 
-            Button {
-                viewModel.adjustSemanticSearchLimit(by: -10)
-            } label: {
-                Label("Decrease Results by 10", systemImage: "minus")
-            }
-            .labelStyle(.iconOnly)
-            .disabled(
-                viewModel.semanticSearchLimit <= 10
-                    || viewModel.isRunningSemanticTest,
-            )
-            .help("Decrease the semantic result limit by 10")
-
-            Text(viewModel.semanticSearchLimit, format: .number)
-                .monospacedDigit()
-                .frame(minWidth: 28)
-                .help("Maximum semantic search results")
-
-            Button {
-                viewModel.adjustSemanticSearchLimit(by: 10)
-            } label: {
-                Label("Increase Results by 10", systemImage: "plus")
-            }
-            .labelStyle(.iconOnly)
-            .disabled(
-                viewModel.semanticSearchLimit >= 500
-                    || viewModel.isRunningSemanticTest,
-            )
-            .help("Increase the semantic result limit by 10")
-
-            if viewModel.isShowingSemanticResults, !viewModel.isRunningSemanticTest {
-                Button {
-                    viewModel.clearSemanticSearchResults()
-                } label: {
-                    Label(
-                        viewModel.isShowingSimilarityResults ? "Clear Similarity" : "Clear Search",
-                        systemImage: "xmark.circle",
-                    )
-                }
-                .help(
-                    viewModel.isShowingSimilarityResults
-                        ? "Return to the selected folder"
-                        : "Clear semantic search results",
-                )
-            }
-
-            if viewModel.addSemanticTest {
-                if viewModel.isRunningSemanticTest {
-                    Button(role: .cancel) {
-                        viewModel.cancelSemanticTest()
-                    } label: {
-                        Label("Cancel Model Test", systemImage: "stop.circle")
-                    }
-                    .help("Stop after preserving all completed model test results")
-
-                    if let progress = viewModel.semanticTestProgress {
-                        Text(
-                            "\(progress.completedQueryCount)/\(progress.totalQueryCount)",
-                            comment: "Completed semantic test queries followed by total queries.",
-                        )
-                        .font(.caption.monospacedDigit())
-                        .help(progress.currentQuery ?? "Comparing indexed images")
-                        .accessibilityLabel("Model test progress")
-                        .accessibilityValue(
-                            "\(progress.completedQueryCount) of \(progress.totalQueryCount) queries completed",
-                        )
-                    }
-                } else {
-                    Button {
-                        viewModel.startSemanticTest()
-                    } label: {
-                        Label("Run Model Test", systemImage: "checklist")
-                    }
-                    .disabled(!viewModel.canRunSemanticTest)
-                    .help("Run semantic queries, compare every indexed image, and save model-prefixed results")
-
-                    if let outcome = viewModel.semanticTestOutcome {
-                        Text("Test \(outcome.completedQueryCount)/\(outcome.totalQueryCount)")
-                            .font(.caption.monospacedDigit())
-                            .help("Results saved to \(outcome.resultFileURL.lastPathComponent)")
-                            .accessibilityLabel("Last model test result")
-                            .accessibilityValue(
-                                "\(outcome.completedQueryCount) of \(outcome.totalQueryCount) queries saved",
-                            )
-                    }
-                }
-            }
-
-            if viewModel.isScanning {
-                ProgressView()
-                    .controlSize(.small)
-                    .help("Discovering supported files")
-            } else if viewModel.isCreatingThumbnails {
-                ProgressView()
-                    .controlSize(.small)
-                    .help("Creating 200px memory thumbnails")
-            } else if viewModel.isSearching || viewModel.isRunningSemanticTest {
-                ProgressView()
-                    .controlSize(.small)
-                    .help(
-                        viewModel.isRunningSemanticTest
-                            ? "Running semantic test queries"
-                            : "Searching the CLIP index",
-                    )
+            if viewModel.isScanning || viewModel.isCreatingThumbnails {
+                ProgressView().controlSize(.small)
             }
         }
     }
@@ -233,16 +86,6 @@ struct FileBrowserView: View {
         } set: { isPresented in
             if !isPresented {
                 viewModel.qwenFeatureError = nil
-            }
-        }
-    }
-
-    private var qwenResponseBinding: Binding<Bool> {
-        Binding {
-            !viewModel.qwenResults.isEmpty && !viewModel.isQwenResponding
-        } set: { isPresented in
-            if !isPresented {
-                viewModel.qwenResults = []
             }
         }
     }

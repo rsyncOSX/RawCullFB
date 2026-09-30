@@ -5,6 +5,7 @@ import SwiftUI
 struct RawCullFBApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var viewModel = FileBrowserViewModel()
+    @State private var hasLoadedWorkspace = false
 
     var body: some Scene {
         Window("RawCullFB", id: "main-window") {
@@ -12,22 +13,25 @@ struct RawCullFBApp: App {
                 .environment(viewModel)
                 .background(.windowBackground)
                 .task {
+                    guard !hasLoadedWorkspace else { return }
+                    hasLoadedWorkspace = true
                     await viewModel.loadSettings()
                     await viewModel.loadRememberedCatalogs()
                 }
-                .onDisappear {
-                    viewModel.stopActiveSecurityScopedAccess()
-                    viewModel.stopCLIPModelSecurityScopedAccess()
-                    viewModel.stopSAM3ModelSecurityScopedAccess()
-                    viewModel.stopQwenModelSecurityScopedAccess()
-                    NSApplication.shared.terminate(nil)
-                }
         }
+        .defaultSize(width: 1100, height: 760)
         .windowToolbarStyle(.unified)
         .commands {
             SidebarCommands()
             RawCullFBCommands()
         }
+
+        Window("AI Workspace", id: "ai-workspace") {
+            BrowserAIWorkspaceView(viewModel: viewModel)
+                .environment(viewModel)
+        }
+        .defaultSize(width: 1200, height: 780)
+        .windowToolbarStyle(.unified)
 
         Settings {
             SettingsView()

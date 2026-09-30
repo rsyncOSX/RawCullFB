@@ -6,8 +6,8 @@ struct CLIPIndexesSettingsTab: View {
     var body: some View {
         Form {
             CLIPIndexCatalogSection(
-                name: viewModel.selectedFolder?.name,
-                path: viewModel.selectedFolder?.url.path,
+                name: viewModel.clipCatalogURL?.lastPathComponent,
+                path: viewModel.clipCatalogURL?.path,
             )
 
             CLIPIndexStatusSection(

@@ -150,6 +150,12 @@ final class FileBrowserViewModel {
         hasSelectedSAM3ModelFolder || managedCLIPModelLocations[.sam3] != nil
     }
 
+    /// Search and indexing use the catalog root even when a child folder is selected.
+    var clipCatalogURL: URL? {
+        guard let folderURL = selectedFolder?.url.standardizedFileURL else { return nil }
+        return securityScopedURL(for: folderURL).standardizedFileURL
+    }
+
     var canIndexSelectedFolder: Bool {
         selectedFolder != nil
             && clipProvider != nil
@@ -530,7 +536,7 @@ final class FileBrowserViewModel {
     }
 
     func startIndexingSelectedFolder() {
-        guard let directory = selectedFolder?.url.standardizedFileURL,
+        guard let directory = clipCatalogURL,
               let provider = clipProvider
         else {
             clipFeatureError = CLIPFeatureError.modelNotConfigured.description
@@ -593,7 +599,7 @@ final class FileBrowserViewModel {
         let validationID = UUID()
         indexValidationID = validationID
 
-        guard let directory = selectedFolder?.url.standardizedFileURL else {
+        guard let directory = clipCatalogURL else {
             clipIndexStatus = .noFolderSelected
             hasCompatibleCLIPIndex = false
             return
@@ -615,7 +621,7 @@ final class FileBrowserViewModel {
             let status = await engine.validateIndex(directory: directory)
             guard !Task.isCancelled,
                   self.indexValidationID == validationID,
-                  self.selectedFolder?.url.standardizedFileURL == directory
+                  self.clipCatalogURL == directory
             else { return }
             self.clipIndexStatus = status
             self.hasCompatibleCLIPIndex = status.allowsSearch
@@ -626,7 +632,7 @@ final class FileBrowserViewModel {
                 self.settings.lastIndexedDirectoryPath = directory.path
                 self.persistSettings()
             } else {
-                self.clearSemanticSearchResults()
+                self.clearSemanticSearchResults(keepingQuery: true)
             }
             self.indexValidationTask = nil
         }
@@ -726,7 +732,7 @@ final class FileBrowserViewModel {
     }
 
     func startSemanticTest() {
-        guard let directory = selectedFolder?.url.standardizedFileURL,
+        guard let directory = clipCatalogURL,
               let engine = clipEngine,
               hasCompatibleCLIPIndex
         else {
