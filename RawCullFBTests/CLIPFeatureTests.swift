@@ -6,6 +6,20 @@ import Testing
 @Suite("CLIP feature")
 struct CLIPFeatureTests {
     @Test
+    func `Search uses the catalog index while browsing descendants`() {
+        let viewModel = FileBrowserViewModel()
+        let root = BrowserFolderItem(url: URL(filePath: "/tmp/photos"))
+        let other = BrowserFolderItem(url: URL(filePath: "/tmp/photos-other"))
+        viewModel.rootFolders = [root, other]
+        viewModel.selectedFolder = BrowserFolderItem(url: URL(filePath: "/tmp/photos/trip/day1"))
+        #expect(viewModel.clipCatalogURL == root.url.standardizedFileURL)
+        viewModel.selectedFolder = other
+        #expect(viewModel.clipCatalogURL == other.url.standardizedFileURL)
+        viewModel.selectedFolder = nil
+        #expect(viewModel.clipCatalogURL == nil)
+    }
+
+    @Test
     func `Managed AI catalog contains CLIP and SAM 3 asset packs`() {
         let catalog = CLIPModelDownloadCatalog.production
 

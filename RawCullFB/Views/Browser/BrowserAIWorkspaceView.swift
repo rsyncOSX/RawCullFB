@@ -140,11 +140,14 @@ struct BrowserAIWorkspaceView: View {
     private var search: some View {
         Form {
             Section("Find images by description") {
-                TextField("For example: a bird flying over water", text: $viewModel.semanticSearchQuery)
-                    .onSubmit { viewModel.startSemanticSearch() }
+                TextField("Image description", text: $viewModel.semanticSearchQuery,
+                    prompt: Text("For example: a bird flying over water"))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
+                    .onSubmit { submitSemanticSearch() }
                 Button("Search Images", systemImage: "sparkle.magnifyingglass") {
-                    viewModel.startSemanticSearch()
-                    openWindow(id: "main-window")
+                    submitSemanticSearch()
                 }
                 .disabled(!viewModel.canSearch || viewModel.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Text("Search returns up to \(viewModel.semanticSearchLimit) images using the current Settings.")
@@ -158,19 +161,9 @@ struct BrowserAIWorkspaceView: View {
                 }
                 .disabled(!viewModel.canFindSimilar)
             }
-            Section("Folder index") {
-                Text(viewModel.selectedFolder?.url.lastPathComponent ?? "Choose a folder in the browser.")
-                if viewModel.isIndexing {
-                    ProgressView("Indexing images…")
-                    Button("Cancel Indexing", role: .cancel) { viewModel.cancelIndexing() }
-                } else {
-                    Button("Index Selected Folder", systemImage: "square.stack.3d.up") {
-                        viewModel.startIndexingSelectedFolder()
-                    }
-                    .disabled(!viewModel.canIndexSelectedFolder)
-                }
-                if !viewModel.hasCompatibleCLIPIndex {
-                    Text("Search needs a compatible index and a configured CLIP model.")
+            Section {
+                if !viewModel.canSearch && !viewModel.isSearching {
+                    Text("Search uses the top-level catalog’s index. Manage the CLIP model and catalog index in Settings.")
                         .foregroundStyle(.secondary)
                 }
                 if viewModel.isSearching { ProgressView("Searching…") }
@@ -180,5 +173,13 @@ struct BrowserAIWorkspaceView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func submitSemanticSearch() {
+        guard viewModel.canSearch,
+              !viewModel.semanticSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+        viewModel.startSemanticSearch()
+        openWindow(id: "main-window")
     }
 }
