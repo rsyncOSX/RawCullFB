@@ -5,11 +5,11 @@ struct BrowserGridView: View {
     @Bindable var viewModel: FileBrowserViewModel
     @FocusState private var isFocused: Bool
     @State private var horizontalThumbnailCount = 1
-    @State private var deepReviewPresentation: BrowserDeepReviewPresentation?
+    @Environment(\.openWindow) private var openWindow
 
     private let thumbnailMinimumWidth: CGFloat = 150
     private let thumbnailMaximumWidth: CGFloat = 220
-    private let gridSpacing: CGFloat = 3
+    private let gridSpacing: CGFloat = 12
     private let gridPadding: CGFloat = 16
 
     private var columns: [GridItem] {
@@ -64,7 +64,7 @@ struct BrowserGridView: View {
                         description: Text(
                             viewModel.semanticSearchQuery.isEmpty
                                 ? "Choose a folder containing RAW, JPEG, TIFF, or PNG files."
-                                : "Try a different description or increase the result limit in Settings.",
+                                : "Try a different description in the AI Workspace.",
                         ),
                     )
                 }
@@ -76,39 +76,26 @@ struct BrowserGridView: View {
                     .background(.regularMaterial, in: .rect(cornerRadius: 8))
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if viewModel.shouldPresentDeepReviewAction {
-                BrowserDeepReviewSelectionBar(
-                    selectedCount: viewModel.selectedFileIDs.count,
-                    isEnabled: viewModel.canDeepReviewSelection,
-                    action: presentDeepReview,
-                )
-            }
-        }
-        .sheet(item: $deepReviewPresentation) { presentation in
-            DeepAIReviewSheetView(
-                controller: viewModel.deepAIReviewController,
-                groupID: presentation.groupID,
-                groupSignature: presentation.groupSignature,
-                files: presentation.files,
-                onRun: {
-                    await viewModel.startDeepReview(
-                        groupID: presentation.groupID,
-                        groupSignature: presentation.groupSignature,
-                        files: presentation.files,
-                    )
-                },
-                onApply: { result in
-                    if let winnerID = result.recommendedFileID,
-                       let winner = presentation.files.first(where: { $0.id == winnerID }) {
-                        viewModel.selectOnlyFile(winner)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack(spacing: 12) {
+                Text("\(viewModel.displayedFiles.count) images")
+                Divider().frame(height: 14)
+                Text("\(viewModel.selectedFileIDs.count) selected")
+                Spacer()
+                if viewModel.isShowingSemanticResults {
+                    Button("Back to Folder", systemImage: "arrow.uturn.backward") {
+                        viewModel.clearSemanticSearchResults()
                     }
-                    deepReviewPresentation = nil
-                },
-                onClose: {
-                    deepReviewPresentation = nil
-                },
-            )
+                }
+                Button("Review Selection", systemImage: "sparkles") {
+                    openWindow(id: "ai-workspace")
+                }
+                .disabled(viewModel.selectedFileIDs.isEmpty)
+            }
+            .font(.callout)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
         }
         .focusable()
         .focused($isFocused)
@@ -185,50 +172,4 @@ struct BrowserGridView: View {
         horizontalThumbnailCount = max(1, thumbnailCount)
     }
 
-    private func presentDeepReview() {
-        let files = viewModel.selectedFiles
-        guard !files.isEmpty, viewModel.canDeepReviewSelection else { return }
-
-        let signature = BurstGroupSignature(
-            files: files,
-            catalog: viewModel.selectedFolder?.url,
-        )
-        deepReviewPresentation = BrowserDeepReviewPresentation(
-            groupID: signature.hashValue,
-            groupSignature: signature,
-            files: files,
-        )
-    }
-}
-
-private struct BrowserDeepReviewSelectionBar: View {
-    let selectedCount: Int
-    let isEnabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("\(selectedCount) selected")
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Button("Deep Review", systemImage: "sparkle.magnifyingglass", action: action)
-                .buttonStyle(.bordered)
-                .disabled(!isEnabled)
-                .help("Review the selected images with local SAM 3 subject-detail analysis")
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .accessibilityElement(children: .contain)
-    }
-}
-
-private struct BrowserDeepReviewPresentation: Identifiable {
-    let id = UUID()
-    let groupID: Int
-    let groupSignature: BurstGroupSignature
-    let files: [BrowserFileItem]
 }

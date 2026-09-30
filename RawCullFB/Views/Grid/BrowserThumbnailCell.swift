@@ -83,7 +83,7 @@ struct BrowserThumbnailCell: View {
         if let image {
             Image(nsImage: image)
                 .resizable()
-                .scaledToFill()
+                .scaledToFit()
                 .clipped()
         } else if isLoading {
             ProgressView()
