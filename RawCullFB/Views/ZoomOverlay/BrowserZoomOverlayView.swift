@@ -129,16 +129,17 @@ struct BrowserZoomOverlayView: View {
 
             VStack {
                 ZStack(alignment: .top) {
-                    ZoomMetadataPanel(
-                        fileName: viewModel.selectedFile?.name,
-                        exifInfo: viewModel.zoomExifInfo,
-                        image: viewModel.zoomImage,
-                        isHistogramVisible: viewModel.isZoomHistogramVisible,
-                        isCollapsed: $viewModel.isZoomMetadataCollapsed,
-                    )
-                    .offset(viewModel.zoomMetadataOffset)
-                    .gesture(metadataDragGesture)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    if viewModel.isZoomMetadataVisible {
+                        ZoomMetadataPanel(
+                            fileName: viewModel.selectedFile?.name,
+                            exifInfo: viewModel.zoomExifInfo,
+                            image: viewModel.zoomImage,
+                            isCollapsed: $viewModel.isZoomMetadataCollapsed,
+                        )
+                        .offset(viewModel.zoomMetadataOffset)
+                        .gesture(metadataDragGesture)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
 
                     HStack(spacing: 12) {
                         Button {
@@ -458,8 +459,8 @@ struct BrowserZoomOverlayView: View {
             showSubjectOutline.toggle()
             return .handled
 
-        case .toggleHistogram:
-            viewModel.isZoomHistogramVisible.toggle()
+        case .toggleMetadata:
+            viewModel.isZoomMetadataVisible.toggle()
             return .handled
 
         case .toggleFocusPoints:
