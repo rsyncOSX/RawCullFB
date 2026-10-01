@@ -57,6 +57,16 @@ actor ThumbnailDiskCache {
         }
     }
 
+    func sizeInBytes() throws -> Int64 {
+        let files = try FileManager.default.contentsOfDirectory(
+            at: cacheDirectory, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+        )
+        return try files.filter { $0.pathExtension == "jpg" }.reduce(Int64(0)) { total, file in
+            let values = try file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            return total + (values.isRegularFile == true ? Int64(values.fileSize ?? 0) : 0)
+        }
+    }
+
     func clear() throws {
         let files = try FileManager.default.contentsOfDirectory(
             at: cacheDirectory, includingPropertiesForKeys: nil,
