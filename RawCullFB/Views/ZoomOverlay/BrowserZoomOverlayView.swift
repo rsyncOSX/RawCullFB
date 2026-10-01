@@ -247,7 +247,7 @@ struct BrowserZoomOverlayView: View {
 
     private var zoomControlRow: some View {
         HStack(spacing: 12) {
-            Picker("Image source", selection: $viewModel.useDevelopedRAW) {
+            Picker("", selection: $viewModel.useDevelopedRAW) {
                 Text("JPG").tag(false)
                 Text(raw9SupportedURL != nil && raw9SupportedURL == viewModel.selectedFile?.url ? "RAW 9" : "RAW").tag(true)
             }
