@@ -23,6 +23,8 @@ final class FileBrowserViewModel {
     var isScanning = false
     var isCreatingThumbnails = false
     var zoomOverlayVisible = false
+    var useDevelopedRAW = false
+    var zoomImageError: String?
     var zoomImage: CGImage?
     var zoomExifInfo: RawImageMetadata?
     var isZoomExifInfoLoaded = false
@@ -1130,6 +1132,7 @@ final class FileBrowserViewModel {
 
         zoomTask?.cancel()
         zoomImage = nil
+        zoomImageError = nil
         zoomExifInfo = nil
         isZoomExifInfoLoaded = false
         zoomLaunchContext = BrowserZoomLaunchContext(
@@ -1138,15 +1141,27 @@ final class FileBrowserViewModel {
         )
         zoomOverlayVisible = true
         let previewSize = settings.thumbnailSizeFullSize
+        let developRAW = useDevelopedRAW && !SupportedFileType.isRenderedImage(selectedFile.url)
         zoomTask = Task {
-            async let image = RawImageLoader.shared.previewImage(
-                for: selectedFile.url,
-                maxPixelSize: previewSize,
-            )
             async let exifInfo = RawImageLoader.shared.metadata(for: selectedFile.url)
-            let (loadedImage, loadedExifInfo) = await (image, exifInfo)
+            do {
+                let loadedImage: CGImage?
+                if developRAW {
+                    loadedImage = try await RawImageLoader.shared.developedPreview(for: selectedFile.url)
+                } else {
+                    loadedImage = await RawImageLoader.shared.previewImage(
+                        for: selectedFile.url, maxPixelSize: previewSize,
+                    )
+                }
+                guard !Task.isCancelled else { return }
+                zoomImage = loadedImage
+                if loadedImage == nil { zoomImageError = "Unable to load this image." }
+            } catch {
+                guard !Task.isCancelled else { return }
+                zoomImageError = "RAW development failed: \(error.localizedDescription)"
+            }
+            let loadedExifInfo = await exifInfo
             guard !Task.isCancelled else { return }
-            zoomImage = loadedImage
             zoomExifInfo = loadedExifInfo
             isZoomExifInfoLoaded = true
         }
@@ -1157,6 +1172,7 @@ final class FileBrowserViewModel {
         zoomTask = nil
         zoomOverlayVisible = false
         zoomImage = nil
+        zoomImageError = nil
         zoomExifInfo = nil
         isZoomExifInfoLoaded = false
         zoomLaunchContext = .default

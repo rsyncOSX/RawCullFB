@@ -14,6 +14,10 @@ struct SettingsView: View {
                 MemoryTab()
             }
 
+            Tab("Cache", systemImage: "internaldrive") {
+                ImageCacheSettingsTab()
+            }
+
             Tab("AI Models", systemImage: "sparkle.magnifyingglass") {
                 CLIPSettingsTab()
             }
