@@ -13,6 +13,9 @@ actor RawImageLoader {
     private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
 
+    private var isClearingCaches = false
+    private var cacheGeneration = 0
+
     private init() {}
 
     private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
@@ -66,6 +69,7 @@ actor RawImageLoader {
     }
 
     func thumbnail(for url: URL, targetSize: Int = 200) async -> NSImage? {
+        guard !isClearingCaches else { return nil }
         let boundedTargetSize = max(targetSize, 1)
         let taskKey = ImageTaskKey(url: url, maxPixelSize: boundedTargetSize)
 
@@ -114,6 +118,7 @@ actor RawImageLoader {
     }
 
     func previewImage(for url: URL, maxPixelSize _: Int) async -> CGImage? {
+        guard !isClearingCaches else { return nil }
         if let existing = extractedJPGTasks[url] {
             return await existing.value
         }
@@ -168,6 +173,41 @@ actor RawImageLoader {
             task.cancel()
         }
         extractedJPGTasks.removeAll()
+    }
+
+    func developedPreview(for url: URL) async throws -> CGImage {
+        let generation = cacheGeneration
+        if let cached = await Self.fullSizeCache.load(for: url, variant: .developedRAW) {
+            try Task.checkCancellation()
+            return cached
+        }
+        try Task.checkCancellation()
+        let data = try await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0, useRAW9: true)
+        try Task.checkCancellation()
+        guard let image = OrientationNormalizedImageLoader.loadCGImage(from: data) else {
+            throw SonyJPEGCreationError.encodingFailed
+        }
+        if !isClearingCaches, generation == cacheGeneration {
+            await Self.fullSizeCache.save(data, for: url, variant: .developedRAW)
+        }
+        try Task.checkCancellation()
+        return image
+    }
+
+    func clearImageCaches() async throws {
+        guard !isClearingCaches else { return }
+        isClearingCaches = true
+        cacheGeneration += 1
+        defer { isClearingCaches = false }
+        let tasks = Array(thumbnailTasks.values)
+        let previews = Array(extractedJPGTasks.values)
+        for task in tasks { task.cancel() }
+        for task in previews { task.cancel() }
+        for task in tasks { _ = await task.value }
+        for task in previews { _ = await task.value }
+        await MemoryImageCache.shared.clear()
+        try await ThumbnailDiskCache.shared.clear()
+        try await Self.fullSizeCache.clear()
     }
 
     func metadata(for url: URL) async -> RawImageMetadata? {

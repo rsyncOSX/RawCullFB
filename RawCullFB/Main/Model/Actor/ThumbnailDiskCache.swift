@@ -50,13 +50,20 @@ actor ThumbnailDiskCache {
     func save(_ jpegData: Data, for sourceURL: URL, maxPixelSize: Int) async {
         let fileURL = cacheURL(for: sourceURL, maxPixelSize: maxPixelSize)
 
-        await Task.detached(priority: .background) {
-            do {
-                try jpegData.write(to: fileURL, options: .atomic)
-            } catch {
-                Logger.process.warning("ThumbnailDiskCache: Failed to write image to disk \(fileURL.path): \(error)")
-            }
-        }.value
+        do {
+            try jpegData.write(to: fileURL, options: .atomic)
+        } catch {
+            Logger.process.warning("ThumbnailDiskCache: Failed to write image to disk \(fileURL.path): \(error)")
+        }
+    }
+
+    func clear() throws {
+        let files = try FileManager.default.contentsOfDirectory(
+            at: cacheDirectory, includingPropertiesForKeys: nil,
+        )
+        for file in files where file.pathExtension == "jpg" {
+            try FileManager.default.removeItem(at: file)
+        }
     }
 
     nonisolated static func jpegData(from cgImage: CGImage) -> Data? {

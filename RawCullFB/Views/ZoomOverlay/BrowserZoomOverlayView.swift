@@ -1,4 +1,5 @@
 import SwiftUI
+import RawParserKit
 
 struct BrowserZoomOverlayView: View {
     @Bindable var viewModel: FileBrowserViewModel
@@ -17,6 +18,7 @@ struct BrowserZoomOverlayView: View {
         let isPresented: Bool
     }
 
+    @State private var raw9SupportedURL: URL?
     @State private var lastScale: CGFloat = 1.0
     @State private var lastOffset: CGSize = .zero
     @State private var lastMetadataOffset: CGSize = .zero
@@ -113,9 +115,10 @@ struct BrowserZoomOverlayView: View {
                     }
                 } else {
                     HStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.large)
-                        Text("Loading image...")
+                        if viewModel.zoomImageError == nil {
+                            ProgressView().controlSize(.large)
+                        }
+                        Text(viewModel.zoomImageError ?? "Loading image...")
                             .font(.title3)
                     }
                     .padding(18)
@@ -230,6 +233,13 @@ struct BrowserZoomOverlayView: View {
             subjectOutline = nil
             isLoadingSubjectOutline = false
         }
+        .task(id: viewModel.selectedFile?.url) {
+            raw9SupportedURL = nil
+            guard let url = viewModel.selectedFile?.url else { return }
+            let supported = await RAW9Support.isSupported(for: url)
+            guard !Task.isCancelled else { return }
+            raw9SupportedURL = supported ? url : nil
+        }
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
         }
@@ -237,6 +247,17 @@ struct BrowserZoomOverlayView: View {
 
     private var zoomControlRow: some View {
         HStack(spacing: 12) {
+            Picker("Image source", selection: $viewModel.useDevelopedRAW) {
+                Text("JPG").tag(false)
+                Text(raw9SupportedURL != nil && raw9SupportedURL == viewModel.selectedFile?.url ? "RAW 9" : "RAW").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 130)
+            .disabled(viewModel.selectedFile.map { SupportedFileType.isRenderedImage($0.url) } ?? true)
+            .help("Show the embedded JPEG or develop the full-size RAW image. RAW 9 is preferred when supported.")
+            .onChange(of: viewModel.useDevelopedRAW) {
+                viewModel.openZoom()
+            }
             Button { decreaseZoom() } label: {
                 ZoomControlBadge {
                     Image(systemName: "minus.magnifyingglass")

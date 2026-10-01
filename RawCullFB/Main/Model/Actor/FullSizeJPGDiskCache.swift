@@ -39,7 +39,7 @@ actor FullSizeJPGDiskCache {
         let attributes = try? FileManager.default.attributesOfItem(atPath: standardizedPath)
         let fileSize = (attributes?[.size] as? NSNumber)?.int64Value ?? -1
         let modificationTime = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? -1
-        let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue)"
+        let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue):raw9"
         let data = Data(
             "\(Self.cacheKeyVersion):\(standardizedPath):\(fileSize):\(modificationTime)\(variantKey)".utf8,
         )
@@ -71,13 +71,20 @@ actor FullSizeJPGDiskCache {
     func save(_ jpegData: Data, for sourceURL: URL, variant: Variant = .embeddedJPG) async {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
-        await Task.detached(priority: .background) {
-            do {
-                try jpegData.write(to: fileURL, options: .atomic)
-            } catch {
-                Logger.process.warning("FullSizeJPGDiskCache: Failed to write image to disk \(fileURL.path): \(error)")
-            }
-        }.value
+        do {
+            try jpegData.write(to: fileURL, options: .atomic)
+        } catch {
+            Logger.process.warning("FullSizeJPGDiskCache: Failed to write image to disk \(fileURL.path): \(error)")
+        }
+    }
+
+    func clear() throws {
+        let files = try FileManager.default.contentsOfDirectory(
+            at: cacheDirectory, includingPropertiesForKeys: nil,
+        )
+        for file in files where file.pathExtension == "jpg" {
+            try FileManager.default.removeItem(at: file)
+        }
     }
 
     /// Encodes a `CGImage` to JPEG `Data` at quality 0.85. Call this before
