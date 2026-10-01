@@ -8,6 +8,7 @@ struct BrowserAIWorkspaceView: View {
     @State private var reviewSignature: BurstGroupSignature?
     @State private var submittedPrompt = ""
     @State private var activeTab = "review"
+    @State private var reviewType = "assessment"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,10 +29,7 @@ struct BrowserAIWorkspaceView: View {
             Divider()
             TabView(selection: $activeTab) {
                 Tab("Photo Review", systemImage: "text.bubble", value: "review") {
-                    photoReview
-                }
-                Tab("Subjects & Detail", systemImage: "viewfinder", value: "subjects") {
-                    subjectReview
+                    unifiedReview
                 }
                 Tab("Search & Similar", systemImage: "sparkle.magnifyingglass", value: "search") {
                     search
@@ -42,9 +40,39 @@ struct BrowserAIWorkspaceView: View {
         .frame(minWidth: 1120, minHeight: 650)
     }
 
+    private var unifiedReview: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Picker("Review type", selection: $reviewType) {
+                    Text("AI Assessment").tag("assessment")
+                    Text("Subject Detail").tag("detail")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 300)
+                Spacer()
+            }
+            if reviewType == "assessment" {
+                photoReview
+            } else {
+                subjectReview
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: reviewType) {
+            if reviewType == "detail", reviewSignature == nil, !viewModel.selectedFiles.isEmpty {
+                prepareSubjectReview()
+            }
+        }
+    }
+
+    private func prepareSubjectReview() {
+        reviewFiles = viewModel.selectedFiles
+        reviewSignature = BurstGroupSignature(files: reviewFiles, catalog: viewModel.selectedFolder?.url)
+    }
+
     private var photoReview: some View {
         VStack(alignment: .leading, spacing: 16) {
-            GroupBox("Review the selected photos") {
+            GroupBox("AI Assessment") {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Ask about composition, exposure, expression, or visible subjects. Results stay here while you continue browsing.")
                         .foregroundStyle(.secondary)
@@ -53,15 +81,16 @@ struct BrowserAIWorkspaceView: View {
                         .textFieldStyle(.roundedBorder)
                         .disabled(viewModel.isQwenResponding)
                     HStack {
-                        Button("Photo Review") {
-                            viewModel.qwenPrompt = FileBrowserViewModel.defaultQwenPrompt
+                        Menu("Review Presets", systemImage: "text.badge.star") {
+                            Button("Composition & Exposure") {
+                                viewModel.qwenPrompt = FileBrowserViewModel.defaultQwenPrompt
+                            }
+                            Button("Objects & Subjects") {
+                                viewModel.qwenPrompt = "Identify the main visible objects and subjects. Evaluate their visibility, obstructions, placement, and how clearly they are presented. Describe the main subject and report strengths and problems supported by the image."
+                            }
                         }
                         .disabled(viewModel.isQwenResponding)
-                        Button("Analyze Objects & Subjects") {
-                            viewModel.qwenPrompt = "Identify the main visible objects and subjects. Evaluate their visibility, obstructions, placement, and how clearly they are presented. Describe the main subject and report strengths and problems supported by the image."
-                        }
-                        .disabled(viewModel.isQwenResponding)
-                        .help("Uses the existing vision assessment to describe subjects and object visibility")
+                        .help("Choose a starting prompt, then adjust the review instructions above.")
                         Spacer()
                         if viewModel.isQwenResponding {
                             if let progress = viewModel.qwenProgress {
@@ -71,7 +100,7 @@ struct BrowserAIWorkspaceView: View {
                             }
                             Button("Cancel", role: .cancel) { viewModel.cancelQwenRequest() }
                         } else {
-                            Button("Ask AI", systemImage: "sparkles") {
+                            Button("Review Selected Photos", systemImage: "sparkles") {
                                 submittedPrompt = viewModel.qwenPrompt
                                 viewModel.askQwen()
                             }
@@ -91,8 +120,10 @@ struct BrowserAIWorkspaceView: View {
             }
             if viewModel.qwenResults.isEmpty {
                 ContentUnavailableView("Ready to Review", systemImage: "photo.badge.checkmark",
-                    description: Text("Select one or more images and ask AI. Use Command-click or Shift-click to select a group."))
-                    .frame(maxHeight: .infinity)
+                    description: Text(viewModel.selectedFiles.isEmpty
+                        ? "Select photos in the browser, then return here to review composition, exposure, and subjects."
+                        : "Adjust the instructions above, then review the selected photos."))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 QwenResponseSheetView(prompt: submittedPrompt, results: viewModel.qwenResults,
                     onClose: { viewModel.qwenResults = [] }, isEmbedded: true)
@@ -104,18 +135,20 @@ struct BrowserAIWorkspaceView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Subject Detail Review").font(.headline)
-                    Text("Compare subject sharpness with existing SAM 3 masks, or inspect a single image.")
+                    Text("Subject Detail").font(.headline)
+                    Text("Compare subject sharpness and inspect subject outlines.")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Use Browser Selection") {
-                    reviewFiles = viewModel.selectedFiles
-                    reviewSignature = BurstGroupSignature(files: reviewFiles, catalog: viewModel.selectedFolder?.url)
+                Button(reviewSignature == nil ? "Review Selected Photos" : "Update from Browser Selection") {
+                    prepareSubjectReview()
                 }
-                .disabled(!viewModel.canDeepReviewSelection)
+                .disabled(!viewModel.canDeepReviewSelection || viewModel.deepAIReviewController.isRunning)
             }
             if let signature = reviewSignature {
+                Text("Reviewing \(reviewFiles.count) photos from your saved selection.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
                 DeepAIReviewSheetView(controller: viewModel.deepAIReviewController,
                     groupID: signature.hashValue, groupSignature: signature, files: reviewFiles,
                     onRun: {
@@ -128,11 +161,11 @@ struct BrowserAIWorkspaceView: View {
                         }
                     }, onClose: { reviewSignature = nil }, isEmbedded: true)
             } else {
-                ContentUnavailableView("Inspect Subjects", systemImage: "viewfinder",
+                ContentUnavailableView("Ready for Subject Review", systemImage: "viewfinder",
                     description: Text(viewModel.sam3ModelStatus.isAvailable
-                        ? "Choose images in the browser, then use the browser selection to prepare a review."
+                        ? "Select photos in the browser to compare subject detail and inspect subject outlines."
                         : "Subject detail review requires a configured SAM 3 model. Manage models in Settings."))
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
