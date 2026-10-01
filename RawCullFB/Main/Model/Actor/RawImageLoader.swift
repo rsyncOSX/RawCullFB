@@ -13,6 +13,8 @@ actor RawImageLoader {
     private var thumbnailTasks: [ImageTaskKey: Task<NSImage?, Never>] = [:]
     private var extractedJPGTasks: [URL: Task<CGImage?, Never>] = [:]
 
+    private var developedTasks: [URL: Task<CGImage, Error>] = [:]
+
     private var isClearingCaches = false
     private var cacheGeneration = 0
 
@@ -176,20 +178,33 @@ actor RawImageLoader {
     }
 
     func developedPreview(for url: URL) async throws -> CGImage {
-        let generation = cacheGeneration
-        if let cached = await Self.fullSizeCache.load(for: url, variant: .developedRAW) {
+        guard !isClearingCaches else { throw CancellationError() }
+        try Task.checkCancellation()
+        if let existing = developedTasks[url] {
+            let image = try await existing.value
             try Task.checkCancellation()
-            return cached
+            return image
         }
-        try Task.checkCancellation()
-        let data = try await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0, useRAW9: true)
-        try Task.checkCancellation()
-        guard let image = OrientationNormalizedImageLoader.loadCGImage(from: data) else {
-            throw SonyJPEGCreationError.encodingFailed
-        }
-        if !isClearingCaches, generation == cacheGeneration {
+
+        // Keep development independent of the Zoom caller's cancellation so
+        // navigating away still leaves a reusable disk entry.
+        let task = Task<CGImage, Error>(priority: .userInitiated) {
+            if let cached = await Self.fullSizeCache.load(for: url, variant: .developedRAW) {
+                try Task.checkCancellation()
+                return cached
+            }
+            try Task.checkCancellation()
+            let data = try await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0, useRAW9: true)
+            try Task.checkCancellation()
+            guard let image = OrientationNormalizedImageLoader.loadCGImage(from: data) else {
+                throw SonyJPEGCreationError.encodingFailed
+            }
             await Self.fullSizeCache.save(data, for: url, variant: .developedRAW)
+            return image
         }
+        developedTasks[url] = task
+        defer { developedTasks[url] = nil }
+        let image = try await task.value
         try Task.checkCancellation()
         return image
     }
@@ -201,10 +216,13 @@ actor RawImageLoader {
         defer { isClearingCaches = false }
         let tasks = Array(thumbnailTasks.values)
         let previews = Array(extractedJPGTasks.values)
+        let developments = Array(developedTasks.values)
         for task in tasks { task.cancel() }
         for task in previews { task.cancel() }
+        for task in developments { task.cancel() }
         for task in tasks { _ = await task.value }
         for task in previews { _ = await task.value }
+        for task in developments { _ = await task.result }
         await MemoryImageCache.shared.clear()
         try await ThumbnailDiskCache.shared.clear()
         try await Self.fullSizeCache.clear()
