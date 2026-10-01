@@ -30,7 +30,7 @@ final class FileBrowserViewModel {
     var isZoomExifInfoLoaded = false
     var zoomScale: CGFloat = 1.0
     var zoomOffset: CGSize = .zero
-    var isZoomHistogramVisible = true
+    var isZoomMetadataVisible = true
     var isZoomMetadataCollapsed = false
     var zoomMetadataOffset: CGSize = .zero
     var isZoomFocusPointVisible = false
