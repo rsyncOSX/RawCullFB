@@ -5,6 +5,7 @@ struct ZoomMetadataPanel: View {
     let fileName: String?
     let exifInfo: RawImageMetadata?
     let image: CGImage?
+    let isHistogramVisible: Bool
     @Binding var isCollapsed: Bool
 
     private let columns = [
@@ -36,7 +37,7 @@ struct ZoomMetadataPanel: View {
             }
 
             if !isCollapsed {
-                if let image {
+                if isHistogramVisible, let image {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Histogram")
                             .font(.caption)

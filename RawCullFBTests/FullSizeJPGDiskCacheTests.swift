@@ -60,6 +60,30 @@ struct FullSizeJPGDiskCacheTests {
         #expect(await cache.load(for: sourceURL) == nil)
     }
 
+    @Test
+    func `developed RAW survives cache recreation independently of embedded JPEG`() async throws {
+        let root = try makeTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceURL = root.appendingPathComponent("source.arw")
+        try Data([1, 2, 3]).write(to: sourceURL)
+        let directory = root.appendingPathComponent("cache", isDirectory: true)
+        let cache = FullSizeJPGDiskCache(cacheDirectory: directory)
+        let embedded = try makeJPEGData(from: makeTestImage(width: 40, height: 20))
+        let developed = try makeJPEGData(from: makeTestImage(width: 80, height: 60))
+        await cache.save(embedded, for: sourceURL)
+        await cache.save(developed, for: sourceURL, variant: .developedRAW)
+
+        let reopened = FullSizeJPGDiskCache(cacheDirectory: directory)
+        let rawImage = try #require(await reopened.load(for: sourceURL, variant: .developedRAW))
+        let jpgImage = try #require(await reopened.load(for: sourceURL))
+        #expect(rawImage.width == 80)
+        #expect(rawImage.height == 60)
+        #expect(jpgImage.width == 40)
+        #expect(jpgImage.height == 20)
+        try await reopened.clear()
+        #expect(await reopened.load(for: sourceURL, variant: .developedRAW) == nil)
+    }
+
     private func makeTestRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullFBFullSizeCache-\(UUID().uuidString)", isDirectory: true)

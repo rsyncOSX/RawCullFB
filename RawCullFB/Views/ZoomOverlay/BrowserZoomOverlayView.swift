@@ -133,6 +133,7 @@ struct BrowserZoomOverlayView: View {
                         fileName: viewModel.selectedFile?.name,
                         exifInfo: viewModel.zoomExifInfo,
                         image: viewModel.zoomImage,
+                        isHistogramVisible: viewModel.isZoomHistogramVisible,
                         isCollapsed: $viewModel.isZoomMetadataCollapsed,
                     )
                     .offset(viewModel.zoomMetadataOffset)
@@ -217,7 +218,7 @@ struct BrowserZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-sSaAxX")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-sSaAeExX")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -455,6 +456,10 @@ struct BrowserZoomOverlayView: View {
         case .toggleSubjectOutline:
             guard subjectOutlineCandidate != nil else { return .ignored }
             showSubjectOutline.toggle()
+            return .handled
+
+        case .toggleHistogram:
+            viewModel.isZoomHistogramVisible.toggle()
             return .handled
 
         case .toggleFocusPoints:
